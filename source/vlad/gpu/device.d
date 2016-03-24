@@ -16,6 +16,7 @@ version(Vulkan)
 	{
 		VkPhysicalDevice					device;
 		VkPhysicalDeviceMemoryProperties	memory;
+		VkPhysicalDeviceProperties			device_props;
 		int									graphics_queue_index;
 		VkQueueFamilyProperties[]			queue_family_props;
 	}
@@ -74,6 +75,7 @@ version(Vulkan)
 	bool enumerateDevices(ref Instance inst, ref PhysicalDevice[] devices)
 	{
 		uint count = 0;
+		// count physical device
 		auto result = vkEnumeratePhysicalDevices(inst, &count, null);
 		if (result != VkResult.VK_SUCCESS || count < 1)
 		{
@@ -85,23 +87,28 @@ version(Vulkan)
 
 		VkPhysicalDevice[] tmp_devs;
 		tmp_devs.length = count;
-		scope (exit) tmp_devs.length = 0;
 
+		// store physical device
 		result = vkEnumeratePhysicalDevices(inst, &count, tmp_devs.ptr);
+
 		if (result != VkResult.VK_SUCCESS)
 		{
 			writeln("Error : vkEnumeratePhysicalDevices() Failed.");
 			return false;
 		}
 
-		foreach(i, dev; tmp_devs)
+		// get properties
+		foreach(i, ref dev; devices)
 		{
-			devices[i].device = dev;
-			vkGetPhysicalDeviceMemoryProperties(devices[i].device, &devices[i].memory);
+			dev.device = tmp_devs[i];
+			// memory props
+			vkGetPhysicalDeviceMemoryProperties(dev.device, &dev.memory);
+			// device props
+			vkGetPhysicalDeviceProperties(dev.device, &dev.device_props);
 		}
 
 		// enumerate queue property
-		foreach (ref dev; devices)
+		foreach (int d, ref dev; devices)
 		{
 			// get queue family count
 			uint prop_count;
@@ -116,7 +123,8 @@ version(Vulkan)
 			// find graphics queue
 			foreach(i; 0..prop_count)
 			{
-				if (dev.queue_family_props[i].queueFlags & VkQueueFlagBits.VK_QUEUE_GRAPHICS_BIT)
+				auto flags = dev.queue_family_props[i].queueFlags;
+				if (flags & VkQueueFlagBits.VK_QUEUE_GRAPHICS_BIT)
 				{
 					dev.graphics_queue_index = i;
 				}
@@ -152,6 +160,7 @@ public:
 		}
 
 		writeln("GpuDevice::created.");
+		printInfo();
 	}
 
 	void finalize()
@@ -162,7 +171,38 @@ public:
 		vkDestroyInstance(mInstance, null);
 		writeln("GpuDevice::finalize.");
 	}
-	bool isEnable() const { return mIsEnable; }
+	nothrow bool isEnable() const { return mIsEnable; }
+
+	void printInfo() const
+	{
+		// get properties
+		foreach(d, ref dev; mDevices)
+		{
+			writefln("deviceName = %s", dev.device_props.deviceName);
+			writefln("\tdevice[%s] prop_count = %s", d, dev.queue_family_props.length);
+
+			foreach(p; 0..dev.queue_family_props.length)
+			{
+				auto flags = dev.queue_family_props[p].queueFlags;
+				if (flags & VkQueueFlagBits.VK_QUEUE_GRAPHICS_BIT)
+				{
+					writefln("\t\tdevice[%s].prop[%s] = Graphics", d, p);
+				}
+				if (flags & VkQueueFlagBits.VK_QUEUE_COMPUTE_BIT)
+				{
+					writefln("\t\tdevice[%s].prop[%s] = Compute", d, p);
+				}
+				if (flags & VkQueueFlagBits.VK_QUEUE_TRANSFER_BIT)
+				{
+					writefln("\t\tdevice[%s].prop[%s] = Transfer", d, p);
+				}
+				if (flags & VkQueueFlagBits.VK_QUEUE_SPARSE_BINDING_BIT)
+				{
+					writefln("\t\tdevice[%s].prop[%s] = SparseBinding", d, p);
+				}
+			}
+		}
+	}
 private:
 	bool				mIsEnable;
 	Instance			mInstance;
