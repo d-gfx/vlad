@@ -15,8 +15,44 @@ version(Vulkan)
 
 	version(X86_64) {
 		bool isHandleNull(Handle)(Handle h) { return h is null; }
+		auto getHandleNull() { return null; }
 	} else {
 		bool isHandleNull(Handle)(Handle h) { return h == 0; }
+		auto getHandleNull() { return 0; }
+	}
+
+	// Not found in dvulkan
+	version (VK_USE_PLATFORM_WIN32_KHR)
+	{
+		import core.sys.windows.windows;
+		enum VK_KHR_win32_surface = 1;
+
+		enum VK_KHR_WIN32_SURFACE_SPEC_VERSION = 5;
+		enum VK_KHR_WIN32_SURFACE_EXTENSION_NAME = "VK_KHR_win32_surface";
+
+		alias VkWin32SurfaceCreateFlagsKHR = VkFlags;
+
+		struct VkWin32SurfaceCreateInfoKHR {
+			VkStructureType sType;
+			const void* pNext;
+			VkWin32SurfaceCreateFlagsKHR flags;
+			HINSTANCE hinstance;
+			HWND hwnd;
+		}
+
+		alias PFN_vkCreateWin32SurfaceKHR = nothrow VkResult function(VkInstance instance, const VkWin32SurfaceCreateInfoKHR* pCreateInfo, const VkAllocationCallbacks* pAllocator, VkSurfaceKHR* pSurface);
+		alias PFN_vkGetPhysicalDeviceWin32PresentationSupportKHR = nothrow VkBool32 function(VkPhysicalDevice physicalDevice, uint queueFamilyIndex);
+
+		__gshared
+		{
+			PFN_vkCreateWin32SurfaceKHR vkCreateWin32SurfaceKHR;
+			PFN_vkGetPhysicalDeviceWin32PresentationSupportKHR vkGetPhysicalDeviceWin32PresentationSupportKHR;
+		}
+		void loadFunctionWin32(VkInstance inst)
+		{
+			vkCreateWin32SurfaceKHR = cast(typeof(vkCreateWin32SurfaceKHR)) vkGetInstanceProcAddr(inst, "vkCreateWin32SurfaceKHR");
+			vkGetPhysicalDeviceWin32PresentationSupportKHR = cast(typeof(vkGetPhysicalDeviceWin32PresentationSupportKHR)) vkGetInstanceProcAddr(inst, "vkGetPhysicalDeviceWin32PresentationSupportKHR");
+		}
 	}
 
 	struct GpuDevice
@@ -29,6 +65,16 @@ version(Vulkan)
 		VkCommandPool						command_pool;
 		int									gfx_queue_index;
 		VkQueueFamilyProperties[]			queue_family_props;
+
+		void finalize()
+		{
+			if (device is null) return;
+			if (!isHandleNull(command_pool))
+			{
+				vkDestroyCommandPool(device, command_pool, null);
+			}
+			vkDestroyDevice(device, null);
+		}
 	}
 
 	bool setupApi()
@@ -52,7 +98,7 @@ version(Vulkan)
 		}
 
 		const(char)*[2] extensions;
-		version(none)
+		version(Windows)
 		{
 			extensions[0] = VK_KHR_SURFACE_EXTENSION_NAME.ptr;
 			extensions[1] = VK_KHR_WIN32_SURFACE_EXTENSION_NAME.ptr;
@@ -67,7 +113,7 @@ version(Vulkan)
 			flags = 0;
 			enabledLayerCount = 0;
 			ppEnabledLayerNames = null;
-			version(none)
+			version(Windows)
 			{
 				enabledExtensionCount = extensions.length;
 				ppEnabledExtensionNames = extensions.ptr;
@@ -81,8 +127,12 @@ version(Vulkan)
 
 		auto ret = vkCreateInstance(&instance_info, null, &inst);
 
-		// inst を使ってその他の関数を全てロードするようだ
+		// load functions
 		DVulkanLoader.loadAllFunctions(inst);
+		version (VK_USE_PLATFORM_WIN32_KHR)
+		{
+			loadFunctionWin32(inst);
+		}
 
 		return (ret == VkResult.VK_SUCCESS);
 	}
@@ -203,108 +253,7 @@ version(Vulkan)
 				writeln( "Error : vkCreateCommandPool() Failed." );
 				return false;
 			}
-			/*
-			writefln( "Create and Destroy!!  vkDestroyCommandPool = %s", vkDestroyCommandPool);
-			vkDestroyCommandPool(dev.device, dev.command_pool, null);
-			writeln( "Destroy!!" );
-			*/
 		}
 		return true;
 	}
-}
-
-/**
- *	Gpu Device class
- */
-class GpuDevices
-{
-public:
-	this ()
-	{
-		mIsEnable = setupApi();
-		if (!mIsEnable)
-			return;
-
-		mIsEnable = createInstance(mInstance, "vlad_app\0", 0, 1, 0);
-		if (!mIsEnable)
-			return;
-
-		mIsEnable = enumerateDevices(mInstance, mGpuDevices);
-		if (!mIsEnable)
-		{
-			finalize();
-			writeln("Error : GpuDevice::enumerateDevices failed.");
-			return;
-		}
-
-		mIsEnable = createDevices(mGpuDevices);
-		if (!mIsEnable)
-		{
-			finalize();
-			writeln("Error : GpuDevice::createDevices failed.");
-			return;
-		}
-
-		writeln("GpuDevice::created.");
-		printInfo();
-	}
-
-	void finalize()
-	{
-		if (!mIsEnable)
-			return;
-
-		writefln("mGpuDevices.length = %s", mGpuDevices.length);
-		foreach (int i, ref dev; mGpuDevices)
-		{
-			writefln("mGpuDevices[%s].device = %s", i, dev.device);
-			if (dev.device is null)
-				continue;
-
-			writefln("vkDestroyCommandPool = %s", vkDestroyCommandPool);
-			if (!isHandleNull(dev.command_pool))
-				vkDestroyCommandPool(dev.device, dev.command_pool, null);
-			vkDestroyDevice(dev.device, null);
-		}
-		vkDestroyInstance(mInstance, null);
-		writeln("GpuDevice::finalize.");
-	}
-	nothrow bool isEnable() const { return mIsEnable; }
-	nothrow ref GpuDevice getGpuDevice(int i) { return mGpuDevices[i]; }
-	nothrow ref const(GpuDevice) getGpuDevice(int i) const { return mGpuDevices[i]; }
-
-	void printInfo() const
-	{
-		// get properties
-		foreach(d, ref dev; mGpuDevices)
-		{
-			writefln("deviceName = %s", dev.device_props.deviceName);
-			writefln("\tdevice[%s] prop_count = %s", d, dev.queue_family_props.length);
-
-			foreach(p; 0..dev.queue_family_props.length)
-			{
-				auto flags = dev.queue_family_props[p].queueFlags;
-				if (flags & VkQueueFlagBits.VK_QUEUE_GRAPHICS_BIT)
-				{
-					writefln("\t\tdevice[%s].prop[%s] = Graphics", d, p);
-				}
-				if (flags & VkQueueFlagBits.VK_QUEUE_COMPUTE_BIT)
-				{
-					writefln("\t\tdevice[%s].prop[%s] = Compute", d, p);
-				}
-				if (flags & VkQueueFlagBits.VK_QUEUE_TRANSFER_BIT)
-				{
-					writefln("\t\tdevice[%s].prop[%s] = Transfer", d, p);
-				}
-				if (flags & VkQueueFlagBits.VK_QUEUE_SPARSE_BINDING_BIT)
-				{
-					writefln("\t\tdevice[%s].prop[%s] = SparseBinding", d, p);
-				}
-			}
-		}
-	}
-private:
-	bool				mIsEnable;
-	Instance			mInstance;
-	GpuDevice[]			mGpuDevices;
 }
