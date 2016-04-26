@@ -6,11 +6,26 @@ module vlad.gpu.deviceholder;
 import vlad.basis;
 import vlad.gpu.device;
 import vlad.gpu.commandbuffer;
+import vlad.gpu.swapchain;
 import std.stdio;
+
+version(Windows)
+{
+	import core.sys.windows.windows;
+}
 
 version(Vulkan)
 {
 	import dvulkan;
+}
+
+struct GpuInitArg
+{
+	version(Windows)
+	{
+		HINSTANCE h_inst;
+		HWND hwnd;
+	}
 }
 
 /**
@@ -19,7 +34,7 @@ version(Vulkan)
 class GpuDeviceHolder
 {
 public:
-	this ()
+	this (ref GpuInitArg arg)
 	{
 		mIsEnable = setupApi();
 		if (!mIsEnable)
@@ -45,24 +60,49 @@ public:
 			return;
 		}
 
+		version(Windows)
+		{
+			// window size
+			RECT rect;
+			GetClientRect(arg.hwnd, &rect);
+			int width  = rect.right - rect.left;
+			int height = rect.bottom - rect.top;
+
+			mSwapChain = new SwapChain();
+			mIsEnable = mSwapChain.createSurface(mInstance, arg.h_inst, arg.hwnd);
+			if (!mIsEnable)
+			{
+				finalize();
+				writeln("Error : SwapChain.createSurface (Windows) failed.");
+				return;
+			}
+		}
+
+		mIsEnable = mSwapChain.createSwapchain(mGpuDevices[0], width, height);
+		if (!mIsEnable)
+		{
+			finalize();
+			writeln("Error : SwapChain.createSwapchain failed.");
+			return;
+		}
+
 		writeln("GpuDevice::created.");
 		printInfo();
 	}
 
 	void finalize()
 	{
-		if (!mIsEnable)
-			return;
+		if (mSwapChain !is null)
+			mSwapChain.finalize();
 
-		writefln("mGpuDevices.length = %s", mGpuDevices.length);
 		foreach (int i, ref dev; mGpuDevices)
 		{
-			writefln("mGpuDevices[%s].device = %s", i, dev.device);
 			dev.finalize();
 		}
 		vkDestroyInstance(mInstance, null);
 		writeln("GpuDevice::finalize.");
 	}
+
 	nothrow bool isEnable() const { return mIsEnable; }
 	nothrow ref GpuDevice getGpuDevice(int i) { return mGpuDevices[i]; }
 	nothrow ref const(GpuDevice) getGpuDevice(int i) const { return mGpuDevices[i]; }
@@ -101,4 +141,5 @@ private:
 	bool				mIsEnable;
 	Instance			mInstance;
 	GpuDevice[]			mGpuDevices;
+	SwapChain			mSwapChain;
 }

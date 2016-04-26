@@ -34,15 +34,15 @@ version(Vulkan)
 
 		struct VkWin32SurfaceCreateInfoKHR {
 			VkStructureType sType;
-			const void* pNext;
+			const (void)* pNext;
 			VkWin32SurfaceCreateFlagsKHR flags;
 			HINSTANCE hinstance;
 			HWND hwnd;
 		}
-
-		alias PFN_vkCreateWin32SurfaceKHR = nothrow VkResult function(VkInstance instance, const VkWin32SurfaceCreateInfoKHR* pCreateInfo, const VkAllocationCallbacks* pAllocator, VkSurfaceKHR* pSurface);
-		alias PFN_vkGetPhysicalDeviceWin32PresentationSupportKHR = nothrow VkBool32 function(VkPhysicalDevice physicalDevice, uint queueFamilyIndex);
-
+		extern(System) @nogc nothrow {
+			alias PFN_vkCreateWin32SurfaceKHR = nothrow VkResult function(VkInstance instance, const VkWin32SurfaceCreateInfoKHR* pCreateInfo, const VkAllocationCallbacks* pAllocator, VkSurfaceKHR* pSurface);
+			alias PFN_vkGetPhysicalDeviceWin32PresentationSupportKHR = nothrow VkBool32 function(VkPhysicalDevice physicalDevice, uint queueFamilyIndex);
+		}
 		__gshared
 		{
 			PFN_vkCreateWin32SurfaceKHR vkCreateWin32SurfaceKHR;
