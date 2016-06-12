@@ -1,0 +1,16 @@
+﻿
+name "vlad"
+license "BSL-1.0"
+description "graphics library of mine."
+copyright "Copyright © 2016, d-gfx"
+authors "d-gfx"
+homepage "http://dlanggraphics.blogspot.jp/"
+targetPath "bin"
+targetType "library"
+
+configuration "use-vulkan" {
+	dependency "erupted" version="~>1.3.6"
+	subConfiguration "erupted" "with-derelict-loader"
+	versions "Vulkan" "VK_USE_PLATFORM_WIN32_KHR"
+}
+

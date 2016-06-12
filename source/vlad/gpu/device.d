@@ -8,7 +8,8 @@ import vlad.basis;
 
 version(Vulkan)
 {
-	import dvulkan;
+	import vlad.gpu.vulkan;
+
 	alias	Instance = VkInstance;
 
 	enum VK_API_VERSION = VK_MAKE_VERSION(1, 0, 3);
@@ -19,40 +20,6 @@ version(Vulkan)
 	} else {
 		bool isHandleNull(Handle)(Handle h) { return h == 0; }
 		auto getHandleNull() { return 0; }
-	}
-
-	// Not found in dvulkan
-	version (VK_USE_PLATFORM_WIN32_KHR)
-	{
-		import core.sys.windows.windows;
-		enum VK_KHR_win32_surface = 1;
-
-		enum VK_KHR_WIN32_SURFACE_SPEC_VERSION = 5;
-		enum VK_KHR_WIN32_SURFACE_EXTENSION_NAME = "VK_KHR_win32_surface";
-
-		alias VkWin32SurfaceCreateFlagsKHR = VkFlags;
-
-		struct VkWin32SurfaceCreateInfoKHR {
-			VkStructureType sType;
-			const (void)* pNext;
-			VkWin32SurfaceCreateFlagsKHR flags;
-			HINSTANCE hinstance;
-			HWND hwnd;
-		}
-		extern(System) @nogc nothrow {
-			alias PFN_vkCreateWin32SurfaceKHR = nothrow VkResult function(VkInstance instance, const VkWin32SurfaceCreateInfoKHR* pCreateInfo, const VkAllocationCallbacks* pAllocator, VkSurfaceKHR* pSurface);
-			alias PFN_vkGetPhysicalDeviceWin32PresentationSupportKHR = nothrow VkBool32 function(VkPhysicalDevice physicalDevice, uint queueFamilyIndex);
-		}
-		__gshared
-		{
-			PFN_vkCreateWin32SurfaceKHR vkCreateWin32SurfaceKHR;
-			PFN_vkGetPhysicalDeviceWin32PresentationSupportKHR vkGetPhysicalDeviceWin32PresentationSupportKHR;
-		}
-		void loadFunctionWin32(VkInstance inst)
-		{
-			vkCreateWin32SurfaceKHR = cast(typeof(vkCreateWin32SurfaceKHR)) vkGetInstanceProcAddr(inst, "vkCreateWin32SurfaceKHR");
-			vkGetPhysicalDeviceWin32PresentationSupportKHR = cast(typeof(vkGetPhysicalDeviceWin32PresentationSupportKHR)) vkGetInstanceProcAddr(inst, "vkGetPhysicalDeviceWin32PresentationSupportKHR");
-		}
 	}
 
 	struct GpuDevice
@@ -79,8 +46,7 @@ version(Vulkan)
 
 	bool setupApi()
 	{
-		DVulkanDerelict.load();
-		return DVulkanDerelict.isLoaded();
+		return setupVulkanApi();
 	}
 
 	bool createInstance(ref Instance inst, string app_namez, int app_ver_major, int app_ver_minor, int app_ver_patch)
@@ -128,17 +94,17 @@ version(Vulkan)
 		auto ret = vkCreateInstance(&instance_info, null, &inst);
 
 		// load functions
-		DVulkanLoader.loadAllFunctions(inst);
-		version (VK_USE_PLATFORM_WIN32_KHR)
+		version(Vulkan)
 		{
-			loadFunctionWin32(inst);
+			loadVulkanFunctions(inst);
 		}
-
+ 
 		return (ret == VkResult.VK_SUCCESS);
 	}
 	bool enumerateDevices(ref Instance inst, ref GpuDevice[] devices)
 	{
 		uint count = 0;
+		assert(vkEnumeratePhysicalDevices !is null);
 		// count physical device
 		auto result = vkEnumeratePhysicalDevices(inst, &count, null);
 		if (result != VkResult.VK_SUCCESS || count < 1)

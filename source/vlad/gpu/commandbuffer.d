@@ -9,8 +9,9 @@ import std.stdio;
 
 version(Vulkan)
 {
-	import dvulkan;
+	import vlad.gpu.vulkan;
 }
+
 
 class CommandBuffer
 {

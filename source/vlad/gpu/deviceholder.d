@@ -9,14 +9,14 @@ import vlad.gpu.commandbuffer;
 import vlad.gpu.swapchain;
 import std.stdio;
 
+version(Vulkan)
+{
+	import vlad.gpu.vulkan;
+}
+
 version(Windows)
 {
 	import core.sys.windows.windows;
-}
-
-version(Vulkan)
-{
-	import dvulkan;
 }
 
 struct GpuInitArg
@@ -60,25 +60,24 @@ public:
 			return;
 		}
 
+		SwapChain.InitArg sw_arg;
+		sw_arg.width  = 512;
+		sw_arg.height = 512;
+		sw_arg.gpu = mGpuDevices[0];
 		version(Windows)
 		{
 			// window size
 			RECT rect;
 			GetClientRect(arg.hwnd, &rect);
-			int width  = rect.right - rect.left;
-			int height = rect.bottom - rect.top;
-
-			mSwapChain = new SwapChain();
-			mIsEnable = mSwapChain.createSurface(mInstance, arg.h_inst, arg.hwnd);
-			if (!mIsEnable)
-			{
-				finalize();
-				writeln("Error : SwapChain.createSurface (Windows) failed.");
-				return;
-			}
+			sw_arg.width  = rect.right - rect.left;
+			sw_arg.height = rect.bottom - rect.top;
+			sw_arg.inst = mInstance;
+			sw_arg.h_inst = arg.h_inst;
+			sw_arg.hwnd = arg.hwnd;
 		}
 
-		mIsEnable = mSwapChain.createSwapchain(mGpuDevices[0], width, height);
+		mSwapChain = new SwapChain();
+		mIsEnable = mSwapChain.init(sw_arg);
 		if (!mIsEnable)
 		{
 			finalize();
