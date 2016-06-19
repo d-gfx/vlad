@@ -49,9 +49,9 @@ public:
 	 */
 	void opAssign(in Self s)
 	in {
-		dlAssert(s.isReady(), "source buffer is not ready");
-		dlAssert(isReady(), "mBuffer is null");
-		dlAssert(s.length <= maxSize(), "s.length[%s] <= maxSize[%s]", s.length, maxSize());
+		vlAssert(s.isReady(), "source buffer is not ready");
+		vlAssert(isReady(), "mBuffer is null");
+		vlAssert(s.length <= maxSize(), "s.length[%s] <= maxSize[%s]", s.length, maxSize());
 	}
 	body {
 		s.mBuffer.copy(mBuffer);	// better method
@@ -182,7 +182,7 @@ public:
 	}
 
 	/**
-	 *	フォーマットリード
+	 *	read with format
 	 */
 	void formatRead(A...)(A args) const
 	{

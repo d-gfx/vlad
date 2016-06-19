@@ -13,7 +13,7 @@ private
 }
 
 // assert
-void dlAssert(string file = __FILE__, size_t line = __LINE__, string func = __FUNCTION__, A...)(bool eq, A args)
+void vlAssert(string file = __FILE__, size_t line = __LINE__, string func = __FUNCTION__, A...)(bool eq, A args)
 {
 	debug
 	{
@@ -24,7 +24,7 @@ void dlAssert(string file = __FILE__, size_t line = __LINE__, string func = __FU
 		}
 	}
 }
-void dlCheckedMsg(size_t line = __LINE__, string file = __FILE__, string func = __FUNCTION__, A...)(bool eq, A args)
+void vlCheckedMsg(size_t line = __LINE__, string file = __FILE__, string func = __FUNCTION__, A...)(bool eq, A args)
 {
 	debug
 	{

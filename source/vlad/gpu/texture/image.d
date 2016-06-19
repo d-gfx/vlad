@@ -69,7 +69,7 @@ class Texture
 		{
 			if (builder.ImageLayout == VK_IMAGE_LAYOUT_UNDEFINED)
 			{
-				dlAssert(0, "builder.ImageLayout = %s", builder.ImageLayout);
+				vlAssert(0, "builder.ImageLayout = %s", builder.ImageLayout);
 				return false;
 			}
 			if (builder.Image !is VK_NULL_ND_HANDLE)
