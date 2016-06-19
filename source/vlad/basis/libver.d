@@ -1,6 +1,6 @@
-﻿/*
-	libver.d
-*/
+﻿/**
+ *	libver.d
+ */
 module vlad.basis.libver;
 
 enum LibraryVersion

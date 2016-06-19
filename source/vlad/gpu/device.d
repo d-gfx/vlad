@@ -12,16 +12,6 @@ version(Vulkan)
 
 	alias	Instance = VkInstance;
 
-	enum VK_API_VERSION = VK_MAKE_VERSION(1, 0, 3);
-
-	version(X86_64) {
-		bool isHandleNull(Handle)(Handle h) { return h is null; }
-		auto getHandleNull() { return null; }
-	} else {
-		bool isHandleNull(Handle)(Handle h) { return h == 0; }
-		auto getHandleNull() { return 0; }
-	}
-
 	struct GpuDevice
 	{
 		VkDevice							device;

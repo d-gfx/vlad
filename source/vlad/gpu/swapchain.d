@@ -37,11 +37,12 @@ class SwapChain
 
 	bool init(ref InitArg arg)
 	{
+		bool is_success = false;
 		version(Vulkan)
 		{
 			version(Windows)
 			{
-				bool is_success = createSurface(arg.inst, arg.h_inst, arg.hwnd);
+				is_success = createSurface(arg.inst, arg.h_inst, arg.hwnd);
 				if (!is_success)
 				{
 					writeln("Error : SwapChain.createSurface (Windows) failed.");
@@ -49,7 +50,21 @@ class SwapChain
 				}
 			}
 		}
-		return createSwapchain(arg.gpu, arg.width, arg.height);
+		is_success = createSwapchain(arg.gpu, arg.width, arg.height);
+		if (!is_success)
+		{
+			writeln("Error : SwapChain.createSwapchain failed.");
+			return false;
+		}
+
+		is_success = createSwapchainImages(arg.gpu);
+		if (!is_success)
+		{
+			writeln("Error : SwapChain.createSwapchainImages failed.");
+			return false;
+		}
+
+		return is_success;
 	}
 
 	version(Vulkan)
@@ -223,6 +238,18 @@ class SwapChain
 		}
 		return true;
 	}
+	bool createSwapchainImages(ref GpuDevice gpu)
+	{
+		uint32_t swap_chain_count = 0;
+		auto result = vkGetSwapchainImagesKHR(gpu.device, mSwapchain, &swap_chain_count, null);
+		if (result != VK_SUCCESS)
+		{
+			writeln("Error : vkGetSwapchainImagesKHR() failed.");
+			return false;
+		}
+		return true;
+	}
+
 	void finalize()
 	{
 		version(Vulkan)
