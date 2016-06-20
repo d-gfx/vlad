@@ -25,24 +25,24 @@ struct IString(A : T[], T)
 	alias Self = IString!(A);
 	alias CHAR = Unqual!T;
 public:
-	A dstr() @property const { return mSlice; }
+	A dstr() @property const { return mSliceString; }
 	alias dstr this; // implicit cast
 
 	const(CHAR)* cstr() const pure
 	{
 		version(NeedException){}else{
-			if (mBuffer is null)
+			if (mBufStringz is null)
 				return cast(ReturnType!(Self.cstr))"\0";
 		}
-		return cast(ReturnType!(Self.cstr))&mBuffer[0];
+		return cast(ReturnType!(Self.cstr))&mBufStringz[0];
 	}
-	CHAR* cstr() { return &mBuffer[0]; }
+	CHAR* cstr() { return &mBufStringz[0]; }
 
-	size_t maxSize()	const pure { return max(0, mBuffer.length - 1); } // exclude null-terminated
-	size_t maxSizez()	const pure { return mBuffer.length;	 } // include null-terminated
-	size_t length()		const pure { return max(0, mSlice.length - 1); }
-	size_t lengthz()	const pure { return mSlice.length; } // include null-terminated
-	bool	isReady()	const pure { return (mBuffer !is null); }
+	size_t maxSize()	const pure { return max(0, mBufStringz.length - 1); } // exclude null-terminated
+	size_t maxSizez()	const pure { return mBufStringz.length;	 } // include null-terminated
+	size_t length()		const pure { return (mSliceString is null) ? 0 : mSliceString.length; }
+	size_t lengthz()	const pure { return (mSliceString is null) ? 0 : mSliceString.length + 1; } // include null-terminated
+	bool	isReady()	const pure { return (mBufStringz !is null); }
 
 	/**
 	 *	store
@@ -50,12 +50,12 @@ public:
 	void opAssign(in Self s)
 	in {
 		vlAssert(s.isReady(), "source buffer is not ready");
-		vlAssert(isReady(), "mBuffer is null");
+		vlAssert(isReady(), "mBufStringz is null");
 		vlAssert(s.length <= maxSize(), "s.length[%s] <= maxSize[%s]", s.length, maxSize());
 	}
 	body {
-		s.mBuffer.copy(mBuffer);	// better method
-	//	mBuffer[0..s.lengthz] = s.mBuffer[0..s.lengthz];
+		s.mBufStringz.copy(mBufStringz);	// better method
+	//	mBufStringz[0..s.lengthz] = s.mBufStringz[0..s.lengthz];
 	}
 
 	/**
@@ -64,9 +64,9 @@ public:
 	struct InputRange
 	{
 		this (in Self host) { mHost = host; }
-		CHAR front() const @property { return mHost.mBuffer[mInputIndex]; }
-		CHAR popFront() @property { return mHost.mBuffer[mInputIndex++]; }
-		bool empty() const @property { return mInputIndex == mHost.mBuffer.length; }
+		CHAR front() const @property { return mHost.mBufStringz[mInputIndex]; }
+		CHAR popFront() @property { return mHost.mBufStringz[mInputIndex++]; }
+		bool empty() const @property { return mInputIndex == mHost.mBufStringz.length; }
 		size_t	mInputIndex = 0;
 		const(Self) mHost;
 	}
@@ -76,33 +76,33 @@ public:
 	 */
 	struct OutputRange
 	{
-		Self mHost;
-		this (ref Self host) { mHost = host; }
+		Self* mHost;
+		this (ref Self host) { mHost = &host; }
 		void put(U)(U item)
 		{
 			auto len = mHost.length();
 			if (len < mHost.maxSize())
 			{
-				mHost.mBuffer[len] = item;
-				mHost.mBuffer[len+1] = '\0';
-				mHost.mSlice = cast(A)mHost.mBuffer[0..len+1]; // not include null-terminated
-	//			if (!__ctfe) std.stdio.writefln("len, item, mSlice.length = %s, %s, %s", len, item, mSlice.length);
+				mHost.mBufStringz[len] = item;
+				mHost.mBufStringz[len+1] = '\0';
+				mHost.mSliceString = cast(A)mHost.mBufStringz[0..len+1]; // not include null-terminated
+//				if (!__ctfe) vlPrintlnInfo("len = %s, item = %s, mSliceString.length = %s", len, item, mHost.mSliceString.length);
 			}
 		}
 		void put(const(char)[] s)
 		{
-//			std.format.sformat(mHost.mBuffer[0..mHost.mBuffer.length], "%s", s);
+//			std.format.sformat(mHost.mBufStringz[0..mHost.mBufStringz.length], "%s", s);
 			foreach (e; s) { put(e); }
 		}
 	}
 
 	void clear()
 	{
-		mSlice = null;
-		if (mBuffer !is null)	mBuffer[0] = '\0';
+		mSliceString = null;
+		if (mBufStringz !is null)	mBufStringz[0] = '\0';
 	}
 
-	bool isEmpty() const { return mSlice is null; }
+	bool isEmpty() const { return mSliceString is null; }
 	bool isEqualString(A str) const pure { return 0 == cmp(dstr, str); }
 
 	/**
@@ -111,11 +111,11 @@ public:
 	 */
 	void applySliceUntilZero()
 	{
-		foreach (int i, ch; mBuffer)
+		foreach (int i, ch; mBufStringz)
 		{
 			if (ch == '\0')
 			{
-				mSlice = cast(A)mBuffer[0..i]; // not include null-terminated
+				mSliceString = cast(A)mBufStringz[0..i]; // not include null-terminated
 				return;
 			}
 		}
@@ -123,8 +123,8 @@ public:
 		clear();
 	}
 private:
-	CHAR[]		mBuffer;
-	A			mSlice;
+	CHAR[]		mBufStringz; // include null-terminated
+	A			mSliceString;  // exclude null-terminated
 }
 
 struct FixedString(int N, A : T[], T)
@@ -139,9 +139,9 @@ public:
 
 	private void trySetupBuffer()
 	{
-		if (mString.mBuffer is null)
+		if (mString.mBufStringz is null)
 		{
-			mString.mBuffer = mFixArray;
+			mString.mBufStringz = mFixArray;
 			clear();
 		}
 	}
@@ -194,8 +194,8 @@ public:
 		}
 		catch (Exception e)
 		{
-			std.stdio.writefln("Failed formatRead.");
-			std.stdio.writefln("%s", e);
+			vlPrintlnInfo("Failed formatRead.");
+			vlPrintlnInfo("%s", e);
 		}
 	}
 
@@ -221,9 +221,10 @@ alias WString	= IString!wstring;
 
 unittest
 {
-	auto var = UnitTestBeginEnd(0);
+	auto var = UnitTestLogger(0);
 	alias Fixed8 = FixedString!(8, string);
 
+	static import std.range;
 	//	static assert(std.range.isOutputRange!(Fixed8, char) == true);
 	//	static assert(std.range.isOutputRange!(Tmp8, char) == false);
 	//	static assert(std.range.isOutputRange!(StringBuf128, char) == true);
@@ -231,17 +232,19 @@ unittest
 	static assert(std.range.isInputRange!(StringBuf128.InputRange) == true);
 	auto fixed8 = Fixed8("Test%sTest", 5);
 	//	formattedWrite(&tmp, "Test%sTest", 5);
-	std.stdio.writefln("tmp = %s", fixed8.dstr);
+	vlPrintlnInfo("tmp = %s", fixed8.dstr);
 	assert(fixed8.dstr == "Test5Tes"); // only 8 character
 
 	auto buf = StringBuf128("Test%sTest", 3);
-	std.stdio.writefln("buf.toString = %s", buf.dstr);
-	std.stdio.writefln("buf.mBuffer = %s", buf.mBuffer);
-	std.stdio.writefln("buf.mBuffer length = %s", buf.mBuffer.length);
-	//	std.stdio.writefln("length = %s", mStringImpl.mBuffer.length);
+	vlPrintlnInfo("buf.toString = %s", buf.dstr);
+	vlPrintlnInfo("buf.mBufStringz = %s", buf.mBufStringz);
+	vlPrintlnInfo("buf.mBufStringz length = %s", buf.mBufStringz.length);
+	//	std.stdio.writefln("length = %s", mStringImpl.mBufStringz.length);
 	assert(buf.dstr == "Test3Test");
 	buf.formatz("Add?");
 	assert(buf.dstr == "Add?", "buf.dstr = " ~ buf.dstr);
 	buf.formatz("This is Test%s. Dlang is %ssmart!", 2, 3);
 	assert(buf.dstr == "This is Test2. Dlang is 3smart!");
+
+	vlPrintlnInfo("fixedstring unittest");
 }
