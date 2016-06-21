@@ -20,6 +20,9 @@ private
 
 //version = NeedException;
 
+/**
+ *	struct of string interface
+ */
 struct IString(A : T[], T)
 {
 	alias Self = IString!(A);
@@ -109,7 +112,7 @@ public:
 	 *	find null-terminate and make apropriate slice
 	 *	when using C-like function ex. win32 api
 	 */
-	void applySliceUntilZero()
+	void ajustSlicez()
 	{
 		foreach (int i, ch; mBufStringz)
 		{
@@ -123,18 +126,21 @@ public:
 		clear();
 	}
 private:
-	CHAR[]		mBufStringz; // include null-terminated
-	A			mSliceString;  // exclude null-terminated
+	CHAR[]		mBufStringz;	// for C style string include null-terminated 
+	A			mSliceString;	// for D style string exclude null-terminated 
 }
 
+/**
+ *	fixed length string
+ */
 struct FixedString(int N, A : T[], T)
 {
 	alias CHAR = Unqual!T;
 public:
 	const(IString!A) getString() @property const { return mString; }
-	alias getString this;
+	alias getString this; // for interface
 	CHAR* cstr() { trySetupBuffer(); return mString.cstr; }	// non-const version
-	void applySliceUntilZero() { return mString.applySliceUntilZero(); }
+	void ajustSlicez() { return mString.ajustSlicez(); }
 	void clear() { return mString.clear(); }
 
 	private void trySetupBuffer()
@@ -203,6 +209,7 @@ private:
 	CHAR[N+1]	mFixArray;
 	IString!A	mString;
 }
+
 alias StringBuf32	= FixedString!(32,  string);
 alias StringBuf64	= FixedString!(64,  string);
 alias StringBuf128	= FixedString!(128, string);
