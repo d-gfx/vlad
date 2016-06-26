@@ -4,7 +4,9 @@
 module vlad.gpu.swapchain;
 
 import vlad.basis;
+import vlad.gpu.commandbuffer;
 import vlad.gpu.device;
+import vlad.gpu.texture;
 import std.stdio;
 
 version(Vulkan)
@@ -57,13 +59,6 @@ class SwapChain
 			return false;
 		}
 
-		is_success = createSwapchainImages(arg.gpu);
-		if (!is_success)
-		{
-			writeln("Error : SwapChain.createSwapchainImages failed.");
-			return false;
-		}
-
 		return is_success;
 	}
 
@@ -92,11 +87,10 @@ class SwapChain
 	}
 	bool createSwapchain(ref GpuDevice gpu, int width, int height)
 	{
-		version(Vulkan)
-		{
+		version(Vulkan) { with (gpu.mDevice) {
 			// enumerate formats
 			uint count  = 0;
-			auto result = vkGetPhysicalDeviceSurfaceFormatsKHR(gpu.physical_device, mSurface, &count, null);
+			auto result = vkGetPhysicalDeviceSurfaceFormatsKHR(physical_device, mSurface, &count, null);
 			if (result != VkResult.VK_SUCCESS)
 			{
 				writeln("Error : vkGetPhysicalDeviceSurfaceFormatKHR() Failed.");
@@ -105,7 +99,7 @@ class SwapChain
 
 			VkSurfaceFormatKHR[] formats;
 			formats.length = count;
-			result = vkGetPhysicalDeviceSurfaceFormatsKHR(gpu.physical_device, mSurface, &count, formats.ptr);
+			result = vkGetPhysicalDeviceSurfaceFormatsKHR(physical_device, mSurface, &count, formats.ptr);
 			if (result != VkResult.VK_SUCCESS)
 			{
 				writeln("Error : vkGetPhysicalDeviceSUrfaceFormatsKHR() Failed.");
@@ -140,8 +134,7 @@ class SwapChain
 			VkSurfaceCapabilitiesKHR caps;
 			auto preTransform = VK_SURFACE_TRANSFORM_IDENTITY_BIT_KHR; // not transform
 			{
-				result = vkGetPhysicalDeviceSurfaceCapabilitiesKHR(
-																   gpu.physical_device,
+				result = vkGetPhysicalDeviceSurfaceCapabilitiesKHR(physical_device,
 																   mSurface,
 																   &caps);
 				if (result != VkResult.VK_SUCCESS)
@@ -160,8 +153,7 @@ class SwapChain
 			auto present_mode = VkPresentModeKHR.VK_PRESENT_MODE_FIFO_KHR;
 			{
 				uint32_t mode_count;
-				result = vkGetPhysicalDeviceSurfacePresentModesKHR(
-																   gpu.physical_device,
+				result = vkGetPhysicalDeviceSurfacePresentModesKHR(physical_device,
 																   mSurface,
 																   &mode_count,
 																   null);
@@ -173,8 +165,7 @@ class SwapChain
 
 				VkPresentModeKHR[] present_modes;
 				present_modes.length = mode_count;
-				result = vkGetPhysicalDeviceSurfacePresentModesKHR(
-																   gpu.physical_device,
+				result = vkGetPhysicalDeviceSurfacePresentModesKHR(physical_device,
 																   mSurface,
 																   &mode_count,
 																   present_modes.ptr);
@@ -226,27 +217,61 @@ class SwapChain
 				create_info.clipped					= VK_TRUE;
 				create_info.oldSwapchain			= getHandleNull();
 
-				result = vkCreateSwapchainKHR(gpu.device, &create_info, null, &mSwapchain);
+				result = vkCreateSwapchainKHR(device, &create_info, null, &mSwapchain);
 				if (result != VkResult.VK_SUCCESS)
 				{
 					writeln( "Error : vkCreateSwapChainKHR() Failed." );
 					return false;
 				}
 				// remember host device
-				mHostDevice = gpu.device;
+				mHostDevice = device;
 			}
-		}
-		return true;
-	}
-	bool createSwapchainImages(ref GpuDevice gpu)
-	{
-		uint32_t swap_chain_count = 0;
-		auto result = vkGetSwapchainImagesKHR(gpu.device, mSwapchain, &swap_chain_count, null);
-		if (result != VK_SUCCESS)
-		{
-			writeln("Error : vkGetSwapchainImagesKHR() failed.");
-			return false;
-		}
+
+			uint32_t swap_chain_count = 0;
+
+			// get swap chain count
+			result = vkGetSwapchainImagesKHR(device, mSwapchain, &swap_chain_count, null);
+			if (result != VK_SUCCESS)
+			{
+				writeln("Error : vkGetSwapchainImagesKHR() failed.");
+				return false;
+			}
+			mBackBuffers.length = swap_chain_count;
+
+			// create command buffer per swap chain
+			gpu.mCommandBuffer = new CommandBuffer();
+			gpu.mCommandBuffer.create(gpu, swap_chain_count);
+
+			// create back buffer
+			VkImage[]	images;
+			images.length = swap_chain_count;
+
+			result = vkGetSwapchainImagesKHR(device, mSwapchain, &swap_chain_count, images.ptr);
+			if (result != VK_SUCCESS)
+			{
+				writeln("Error : vkGetSwapChainImagesKHR() Failed.");
+				return false;
+			}
+
+			Texture.Builder builder;
+			builder.setWidth(width).setHeight(height);
+			foreach (i; 0..swap_chain_count)
+			{
+				version(Vulkan)
+				{
+					builder.setSwapchain(images[i], cast(ImgFmt)fmt);
+				}
+				else
+				{
+					static assert(0, "not implemented.");
+				}
+				mBackBuffers[i] = new Texture();
+				mBackBuffers[i].create(gpu, builder);
+			}
+
+			images.length = 0;
+		} } // with, Vulkan
+
 		return true;
 	}
 
@@ -265,4 +290,5 @@ private:
 		VkSurfaceKHR	mSurface;
 		VkSwapchainKHR	mSwapchain;
 	}
+	Texture[]	mBackBuffers;
 }

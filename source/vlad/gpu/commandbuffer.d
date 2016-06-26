@@ -26,27 +26,32 @@ class CommandBuffer
 		this(){}
 
 		bool isReady() const { return (0 < mBuffers.length); }
+		VkCommandBuffer getCurBuffer() { return mBuffers[mCurIndex]; }
 
 		bool create(ref GpuDevice gpu_dev, int swap_chain_cnt)
 		{
-			mHostDevice = gpu_dev.device;
-			mHostPool	= gpu_dev.command_pool;
-			mBuffers.length = swap_chain_cnt;
-		
-			VkCommandBufferAllocateInfo info;
-			info.sType				= VkStructureType.VK_STRUCTURE_TYPE_COMMAND_BUFFER_ALLOCATE_INFO;
-			info.pNext				= null;
-			info.commandPool		= gpu_dev.command_pool;
-			info.level				= VkCommandBufferLevel.VK_COMMAND_BUFFER_LEVEL_PRIMARY;
-			info.commandBufferCount	= swap_chain_cnt;
-		
-			auto result = vkAllocateCommandBuffers(gpu_dev.device, &info, mBuffers.ptr);
-			if (result != VkResult.VK_SUCCESS)
+			with (gpu_dev.mDevice)
 			{
-				writeln("Error : vkAllocateCommandBuffers() Failed.");
-				return false;
+				mHostDevice = device;
+				mHostPool	= command_pool;
+				mBuffers.length = swap_chain_cnt;
+		
+				VkCommandBufferAllocateInfo info;
+				info.sType				= VkStructureType.VK_STRUCTURE_TYPE_COMMAND_BUFFER_ALLOCATE_INFO;
+				info.pNext				= null;
+				info.commandPool		= command_pool;
+				info.level				= VkCommandBufferLevel.VK_COMMAND_BUFFER_LEVEL_PRIMARY;
+				info.commandBufferCount	= swap_chain_cnt;
+		
+				auto result = vkAllocateCommandBuffers(device, &info, mBuffers.ptr);
+				if (result != VkResult.VK_SUCCESS)
+				{
+					writeln("Error : vkAllocateCommandBuffers() Failed.");
+					return false;
+				}
+
+				return true;
 			}
-			return true;
 		}
 
 		void finalize()
@@ -73,7 +78,7 @@ class CommandBuffer
 			begin_info.flags				= 0;
 			begin_info.pInheritanceInfo		= &inheritance_info;
 		
-			auto result = vkBeginCommandBuffer(mBuffers[mCurIndex], &begin_info);
+			auto result = vkBeginCommandBuffer(getCurBuffer(), &begin_info);
 			if (result != VkResult.VK_SUCCESS)
 			{
 				writeln( "Error : vkBeginCommandBuffer() Failed." );
