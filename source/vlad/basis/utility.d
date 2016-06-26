@@ -47,19 +47,16 @@ void vlCheckedMsg(size_t line = __LINE__, string file = __FILE__, string func = 
 }
 
 /// unit test log
-version(unittest)
+struct UnitTestLogger
 {
-	struct UnitTestLogger
+	this (string file = __FILE__, int line = __LINE__)(int dummy)
 	{
-		this (string file = __FILE__, int line = __LINE__)(int dummy)
-		{
-			mFile = file;
-			writefln("Unit Test Begin[%s:%s]", mFile, line);
-		}
-		~this ()
-		{
-			writefln("Unit Test End[%s]", mFile);
-		}
-		string mFile;
+		mFile = file;
+		writefln("Unit Test Begin[%s:%s]", mFile, line);
 	}
+	~this ()
+	{
+		writefln("Unit Test End[%s]", mFile);
+	}
+	string mFile;
 }

@@ -9,7 +9,7 @@ version(Vulkan) {
 	import vlad.basis;
 	import vlad.gpu.vulkan;
 
-	void clearColorImage(VkCommandBuffer cmd, VkImage image, in C4f color)
+	void clearColorImage(VkImage image, VkCommandBuffer cmd, in C4f color)
 	{
 		VkClearColorValue clearColor;
 		clearColor.float32[0] = color.r;

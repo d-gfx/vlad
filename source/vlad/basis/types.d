@@ -28,7 +28,6 @@ alias TVector!(f32, 4)	V4f;	/// 4d vector
 alias TVector!(s32, 4)	V4s;	/// ditto
 alias TVector!(u32, 4)	V4u;	/// ditto
 
-
 alias TVector!(f32, 4)		C4f;	/// color
 alias TVector!(s32, 4)		C4s;	/// ditto
 alias TVector!(u32, 4)		C4u;	/// ditto

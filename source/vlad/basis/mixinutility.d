@@ -11,8 +11,7 @@ alias MixinUtil = vlad.basis.mixinutility;
  */
 template CompileMsg(string MSG)
 {
-	const string CompileMsg = 
-		"pragma(msg, \"CompileMsg = \" ~ __FILE__ ~ \"(\" ~ __LINE__.stringof ~ \"):" ~ MSG ~ "\");";
+	enum CompileMsg = "pragma(msg, \"CompileMsg = \"~__FILE__~\"(\"~__LINE__.stringof~\"):"~MSG~"\");";
 }
 
 /**

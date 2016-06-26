@@ -15,6 +15,33 @@ private
 	{
 		const string VecInit = "Self(" ~ initializers ~ ");";
 	}
+	/// Generates all possible component select getter
+	/// @fixme Can not put this function on vlad.basis.compsel.d [dmd v2.071.0]
+	string getterCompSel(T)(string[] comp_list, string comp, string r, int term )
+	{
+		int N = comp_list.length;
+		string str_dim = to!string(N - term + 1);
+		string str_type = "@property auto ";
+		string str_prefix = "() const { return ";
+		string result;
+
+		foreach (i; 0..N)  {
+			string comp_sel = comp ~ comp_list[ i ];
+			string str_ret_elem = r~"array["~to!string(i)~"]";
+			string str_return = str_prefix ~ (term == N ? str_ret_elem ~ "; }"
+											  : "TVector!(T, "~str_dim~")("~str_ret_elem~"); }");
+			/// skip V2f.xy, V3f.xyz, V4f.xyzw which all return identity
+			string skip; foreach (s; 0..N) skip ~= comp_list[s];
+			if (N==2 && (comp_sel == skip))    result ~= str_type~comp_sel~"() const { return this; }\n";
+			else  if(N==3 && (comp_sel==skip)) result ~= str_type~comp_sel~"() const { return this; }\n";
+			else  if(N==4 && (comp_sel==skip)) result ~= str_type~comp_sel~"() const { return this; }\n";
+			else { 
+				result ~= str_type ~ comp_sel ~ str_return ~ "\n";
+				if (term > 1)  result ~= getterCompSel!(T)(comp_list, comp_sel, str_ret_elem ~ ", ", term - 1 );
+			}
+		}
+		return result;
+	}
 }
 
 struct TVector(T, int N)
@@ -94,29 +121,22 @@ struct TVector(T, int N)
 	}
 
 	// define property
-	@property T opDispatch(string X)() const
+	static if (N <= 4)
 	{
-		static if ((1<=N) && (X=="x"||X=="r"||X=="u"))		{ return array[0]; }
-		else static if ((2<=N) && (X=="y"||X=="g"||X=="v"))	{ return array[1]; }
-		else static if ((3<=N) && (X=="z"||X=="b"||X=="s"))	{ return array[2]; }
-		else static if ((4<=N) && (X=="w"||X=="a"||X=="t"))	{ return array[3]; }
-		else static assert(0, "Not Support Member Func : " ~ X);
-	}
-	@property ref T opDispatch(string X)()
-	{
-		static if ((1<=N) && (X=="x"||X=="r"||X=="u"))		{ return array[0]; }
-		else static if ((2<=N) && (X=="y"||X=="g"||X=="v"))	{ return array[1]; }
-		else static if ((3<=N) && (X=="z"||X=="b"||X=="s"))	{ return array[2]; }
-		else static if ((4<=N) && (X=="w"||X=="a"||X=="t"))	{ return array[3]; }
-		else static assert(0, "Not Support Member Func : " ~ X);
-	}
-	@property T opDispatch(string X)(T value)
-	{
-		static if ((1<=N) && (X=="x"||X=="r"||X=="u"))		{ array[0] = value; return array[0]; }
-		else static if ((2<=N) && (X=="y"||X=="g"||X=="v"))	{ array[1] = value; return array[1]; }
-		else static if ((3<=N) && (X=="z"||X=="b"||X=="s"))	{ array[2] = value; return array[2]; }
-		else static if ((4<=N) && (X=="w"||X=="a"||X=="t"))	{ array[3] = value; return array[3]; }
-		else static assert(0, "Not Support TVector(" ~ T.stringof ~ ", " ~ N.stringof ~ ") property " ~ X);
+		enum string[N] vec_comp = (["x", "y", "z", "w"])[0 .. N];
+		enum string[N] col_comp = (["r", "g", "b", "a"])[0 .. N];
+		enum string[N] tex_comp = (["s", "t", "p", "q"])[0 .. N];
+		enum int[N] idcs = ([0, 1, 2, 3])[0..N];
+
+	//	pragma(msg, setterCompSel(idcs, vec_comp));
+	//	pragma(msg, setterCompSel(idcs, col_comp));
+	//	pragma(msg, setterCompSel(idcs, uv_comp));
+		mixin (setterCompSel(idcs, vec_comp));
+		mixin (setterCompSel(idcs, col_comp));
+		mixin (setterCompSel(idcs, tex_comp));
+		mixin (getterCompSel!T(vec_comp, "", "", N));
+		mixin (getterCompSel!T(col_comp, "", "", N));
+		mixin (getterCompSel!T(tex_comp, "", "", N));
 	}
 
 	// constructor
@@ -136,26 +156,17 @@ struct TVector(T, int N)
 	Self opAssign(in T v)			{ static if (isSimd)  vec = v; else array[] = v; return this; }
 	Self opAssign(in T[N] arry)		{ array[] = arry[]; return this; }
 
-	Self opOpAssign(string op)(in Self v)
+	Self opOpAssign(string op)(in Self v) if (op=="+" || op=="-" || op=="*" || op=="/")
 	{
-		static if (op == "+")		{ static if (isSimd)  vec += v.vec; else array[] += v.array[]; return this; }
-		else static if (op == "-")	{ static if (isSimd)  vec -= v.vec; else array[] -= v.array[]; return this; }
-		else static if (op == "*")	{ static if (isSimd)  vec *= v.vec; else array[] *= v.array[]; return this; }
-		else static if (op == "/")	{ static if (isSimd)  vec /= v.vec; else array[] /= v.array[]; return this; }
+		static if (isSimd)  mixin("vec "~op~"= v.vec;"); else mixin("array[] "~op~"= v.array[];"); return this;
 	}
-	Self opOpAssign(string op)(in T v)
+	Self opOpAssign(string op)(in T v) if (op=="+" || op=="-" || op=="*" || op=="/")
 	{
-		static if (op == "+")		{ static if (isSimd)  vec += v; else array[] += v; return this; }
-		else static if (op == "-")	{ static if (isSimd)  vec -= v; else array[] -= v; return this; }
-		else static if (op == "*")	{ static if (isSimd)  vec *= v; else array[] *= v; return this; }
-		else static if (op == "/")	{ static if (isSimd)  vec /= v; else array[] /= v; return this; }
+		static if (isSimd)  mixin("vec "~op~"= v;"); else mixin("array[] "~op~"= v;"); return this;
 	}
-	Self opOpAssign(string op)(in T[N] arry)
+	Self opOpAssign(string op)(in T[N] arry) if (op=="+" || op=="-" || op=="*" || op=="/")
 	{
-		static if (op == "+")		{ array[] += arry[]; return this; }
-		else static if (op == "-")	{ array[] -= arry[]; return this; }
-		else static if (op == "*")	{ array[] *= arry[]; return this; }
-		else static if (op == "/")	{ array[] /= arry[]; return this; }
+		mixin("array[] "~op~"= arry[];"); return this;
 	}
 
 	Self opAdd(in Self v) const { Self r = this; r.opOpAssign!"+"(v); return r; }
@@ -197,11 +208,12 @@ struct TVector(T, int N)
 
 }
 
-unittest
-//void unittestVector()
+//unittest
+void unittestVector()
 {
-	version(unittest) { auto var = UnitTestLogger(0); }
+	auto var = UnitTestLogger(0);
 	alias vec3f = TVector!(float, 3);
+	alias vec2f = TVector!(float, 2);
 
 	auto a = vec3f(0, 0, 0);
 	auto b = vec3f(1, 2, 3);
@@ -210,4 +222,7 @@ unittest
 	assert(c.x == 1.0);
 	assert(c.y == 2.0);
 	assert(c.z == 3.0);
+	c.rg = vec2f(-1, -2);
+	assert(c.r == -1.0);
+	assert(c.g == -2.0);
 }
