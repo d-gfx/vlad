@@ -15,33 +15,6 @@ private
 	{
 		const string VecInit = "Self(" ~ initializers ~ ");";
 	}
-	/// Generates all possible component select getter
-	/// @fixme Can not put this function on vlad.basis.compsel.d [dmd v2.071.0]
-	string getterCompSel(T)(string[] comp_list, string comp, string r, int term )
-	{
-		int N = comp_list.length;
-		string str_dim = to!string(N - term + 1);
-		string str_type = "@property auto ";
-		string str_prefix = "() const { return ";
-		string result;
-
-		foreach (i; 0..N)  {
-			string comp_sel = comp ~ comp_list[ i ];
-			string str_ret_elem = r~"array["~to!string(i)~"]";
-			string str_return = str_prefix ~ (term == N ? str_ret_elem ~ "; }"
-											  : "TVector!(T, "~str_dim~")("~str_ret_elem~"); }");
-			/// skip V2f.xy, V3f.xyz, V4f.xyzw which all return identity
-			string skip; foreach (s; 0..N) skip ~= comp_list[s];
-			if (N==2 && (comp_sel == skip))    result ~= str_type~comp_sel~"() const { return this; }\n";
-			else  if(N==3 && (comp_sel==skip)) result ~= str_type~comp_sel~"() const { return this; }\n";
-			else  if(N==4 && (comp_sel==skip)) result ~= str_type~comp_sel~"() const { return this; }\n";
-			else { 
-				result ~= str_type ~ comp_sel ~ str_return ~ "\n";
-				if (term > 1)  result ~= getterCompSel!(T)(comp_list, comp_sel, str_ret_elem ~ ", ", term - 1 );
-			}
-		}
-		return result;
-	}
 }
 
 struct TVector(T, int N)
@@ -121,22 +94,65 @@ struct TVector(T, int N)
 	}
 
 	// define property
-	static if (N <= 4)
+	version(none)
 	{
-		enum string[N] vec_comp = (["x", "y", "z", "w"])[0 .. N];
-		enum string[N] col_comp = (["r", "g", "b", "a"])[0 .. N];
-		enum string[N] tex_comp = (["s", "t", "p", "q"])[0 .. N];
-		enum int[N] idcs = ([0, 1, 2, 3])[0..N];
+		// @note link error occurs [dmd v2.071.0]
+		static if (N <= 4)
+		{
+			enum string[N] vec_comp = (["x", "y", "z", "w"])[0 .. N];
+			enum string[N] col_comp = (["r", "g", "b", "a"])[0 .. N];
+			enum string[N] tex_comp = (["s", "t", "p", "q"])[0 .. N];
+			enum int[N] idcs = ([0, 1, 2, 3])[0..N];
 
-	//	pragma(msg, setterCompSel(idcs, vec_comp));
-	//	pragma(msg, setterCompSel(idcs, col_comp));
-	//	pragma(msg, setterCompSel(idcs, uv_comp));
-		mixin (setterCompSel(idcs, vec_comp));
-		mixin (setterCompSel(idcs, col_comp));
-		mixin (setterCompSel(idcs, tex_comp));
-		mixin (getterCompSel!T(vec_comp, "", "", N));
-		mixin (getterCompSel!T(col_comp, "", "", N));
-		mixin (getterCompSel!T(tex_comp, "", "", N));
+			mixin (setterCompSel(idcs, vec_comp));
+			mixin (setterCompSel(idcs, col_comp));
+			mixin (setterCompSel(idcs, tex_comp));
+			mixin (getterCompSel!T(vec_comp, "", "", N));
+			mixin (getterCompSel!T(col_comp, "", "", N));
+			mixin (getterCompSel!T(tex_comp, "", "", N));
+		}
+	}
+	else
+	{
+		@property auto opDispatch(string comp_sel)() const if ((0 < comp_sel.length) && (comp_sel.length <= 4))
+		{
+			mixin (getterCompSelWithList!(comp_sel, getCompList!(comp_sel)));
+		}
+
+		@property auto ref opDispatch(string comp_sel, Arg)(Arg arg) if ((0 < comp_sel.length) && (comp_sel.length <= 4))
+		{
+			import std.string : indexOf;
+			import std.array : array;
+			import std.algorithm : map, sort, uniq;
+			enum comp_list = getCompList!(comp_sel);
+			static if (comp_sel.length == 1)
+			{
+				enum index = comp_list.indexOf(comp_sel[0]);
+				this.array[index] = arg;
+				return this.array[index];
+			}
+			else
+			{
+				enum indices = comp_sel.map!(x=>comp_list.indexOf(x)).array;
+				static assert(indices.sort().uniq.array.length == indices.length); // forbid duplication
+
+				static if (isImplicitlyConvertible!(Arg, T))
+				{
+					foreach (i; 0..indices.length) { this.array[indices[i]] = arg; }
+				}
+				else
+				{
+					static if (__traits(compiles, TemplateArgsOf!Arg)
+							&& isInstanceOf!(TemplateOf!Arg, Self))
+					{
+						// type is in TemplateArgs[0], dimention is in TemplateArgs[1]
+						static assert(TemplateArgsOf!(Arg)[1] == comp_sel.length);
+					}
+					foreach (i; 0..indices.length) { this.array[indices[i]] = arg[i]; }
+				}
+				return this;
+			}
+		}
 	}
 
 	// constructor
@@ -208,8 +224,8 @@ struct TVector(T, int N)
 
 }
 
-//unittest
-void unittestVector()
+unittest
+//void unittestVector()
 {
 	auto var = UnitTestLogger(0);
 	alias vec3f = TVector!(float, 3);
@@ -219,10 +235,15 @@ void unittestVector()
 	auto b = vec3f(1, 2, 3);
 	auto c = a + b;
 
+	assert(c.xy.x == 1.0);
 	assert(c.x == 1.0);
 	assert(c.y == 2.0);
 	assert(c.z == 3.0);
-	c.rg = vec2f(-1, -2);
-	assert(c.r == -1.0);
-	assert(c.g == -2.0);
+
+	c.b = -99.0;
+	assert(c.z == -99.0);
+//	c.rg = [-1, -2];	assert(c.r == -1.0);	assert(c.g == -2.0);
+	c.rg = vec2f(-3, -4);
+	assert(c.r == -3.0);
+	assert(c.g == -4.0);
 }
