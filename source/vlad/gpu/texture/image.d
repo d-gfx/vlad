@@ -123,31 +123,13 @@ class Texture
 		}
 		auto aspect_flag = VK_IMAGE_ASPECT_COLOR_BIT;
 		// set image layout
-		VkImageMemoryBarrier barrier;
-		barrier.sType = VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER;
-		barrier.pNext = null;
-		barrier.srcAccessMask = 0;
-		barrier.dstAccessMask = 0;
-		barrier.oldLayout = VK_IMAGE_LAYOUT_UNDEFINED;
-		barrier.newLayout = builder.ImageLayout;
-		barrier.image = mImage;
-		barrier.subresourceRange = VkImageSubresourceRange(aspect_flag, 0, 1, 0, 1);
+		setImageLayout(mImage, gpu.mCommandBuffer.getCurBuffer(), VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_GENERAL);
 
-		if (builder.ImageLayout == VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL) { barrier.dstAccessMask = VK_ACCESS_TRANSFER_READ_BIT; }
-		if (builder.ImageLayout == VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL) { barrier.dstAccessMask = VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT; }
-		if (builder.ImageLayout == VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL){ barrier.dstAccessMask = VK_ACCESS_DEPTH_STENCIL_ATTACHMENT_WRITE_BIT; }
-		if (builder.ImageLayout == VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL) { barrier.dstAccessMask = VK_ACCESS_SHADER_READ_BIT | VK_ACCESS_INPUT_ATTACHMENT_READ_BIT; }
+		// clear color buffer
+		clearColorImage(mImage, gpu.mCommandBuffer.getCurBuffer(), C4f.Red);
 
-		vkCmdPipelineBarrier(gpu.mCommandBuffer.getCurBuffer()
-							, VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT
-							, VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT
-							, 0
-							, 0
-							, null
-							, 0
-							, null
-							, 1
-							, &barrier);
+		// set image layout
+		setImageLayout(mImage, gpu.mCommandBuffer.getCurBuffer(), VK_IMAGE_LAYOUT_GENERAL, builder.ImageLayout);
 		mHost = &gpu;
 		return true;
 	} } } // with, Vulkan

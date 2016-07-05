@@ -88,155 +88,18 @@ class SwapChain
 	bool createSwapchain(ref GpuDevice gpu, int width, int height)
 	{
 		version(Vulkan) { with (gpu.mDevice) {
-			// enumerate formats
-			uint count  = 0;
-			auto result = vkGetPhysicalDeviceSurfaceFormatsKHR(physical_device, mSurface, &count, null);
-			if (result != VkResult.VK_SUCCESS)
+			import vlad.gpu.vulkan.swapchain;
+			// create swap chain
+			auto ret = createSwapchainVulkan(gpu, &mSwapchain, mSurface, width, height);
+			if (!ret.is_success)
 			{
-				writeln("Error : vkGetPhysicalDeviceSurfaceFormatKHR() Failed.");
 				return false;
 			}
-
-			VkSurfaceFormatKHR[] formats;
-			formats.length = count;
-			result = vkGetPhysicalDeviceSurfaceFormatsKHR(physical_device, mSurface, &count, formats.ptr);
-			if (result != VkResult.VK_SUCCESS)
-			{
-				writeln("Error : vkGetPhysicalDeviceSUrfaceFormatsKHR() Failed.");
-				return false;
-			}
-
-			// print all supported formats
-			foreach (ref f; formats)
-			{
-				writefln("fmt = %s, cl_space = %s", f.format, f.colorSpace);
-			}
-			// find format
-			VkFormat		fmt			= VkFormat.VK_FORMAT_R8G8B8A8_UNORM;
-			VkColorSpaceKHR	cl_space	= VK_COLORSPACE_SRGB_NONLINEAR_KHR;
-
-			bool is_find = false;
-			foreach (ref f; formats)
-			{
-				if (fmt == f.format && cl_space == f.colorSpace)
-				{
-					is_find = true; break;
-				}
-			}
-
-			if (!is_find)
-			{
-				fmt			= formats[0].format;
-				cl_space	= formats[0].colorSpace;
-			}
-
-			// Capability
-			VkSurfaceCapabilitiesKHR caps;
-			auto preTransform = VK_SURFACE_TRANSFORM_IDENTITY_BIT_KHR; // not transform
-			{
-				result = vkGetPhysicalDeviceSurfaceCapabilitiesKHR(physical_device,
-																   mSurface,
-																   &caps);
-				if (result != VkResult.VK_SUCCESS)
-				{
-					writeln("Error : vkGetPhysicalDeviceSurfaceCapabilitiesKHR() Failed.");
-					return false;
-				}
-
-				if (!(caps.supportedTransforms & VK_SURFACE_TRANSFORM_IDENTITY_BIT_KHR))
-				{
-					preTransform = caps.currentTransform;
-				}
-			}
-
-			// present mode
-			auto present_mode = VkPresentModeKHR.VK_PRESENT_MODE_FIFO_KHR;
-			{
-				uint32_t mode_count;
-				result = vkGetPhysicalDeviceSurfacePresentModesKHR(physical_device,
-																   mSurface,
-																   &mode_count,
-																   null);
-				if (result != VkResult.VK_SUCCESS)
-				{
-					writeln("Error : vkGetPhysicalDeviceSurfacePresentModesKHR() Failed.");
-					return false;
-				}
-
-				VkPresentModeKHR[] present_modes;
-				present_modes.length = mode_count;
-				result = vkGetPhysicalDeviceSurfacePresentModesKHR(physical_device,
-																   mSurface,
-																   &mode_count,
-																   present_modes.ptr);
-				if (result != VkResult.VK_SUCCESS)
-				{
-					writeln("Error : vkGetPhysicalDeviceSurfacePresentModesKHR() Failed.");
-					return false;
-				}
-
-				foreach (i; 0..mode_count)
-				{
-					if (present_modes[i] == VK_PRESENT_MODE_MAILBOX_KHR)
-					{
-						present_mode = VK_PRESENT_MODE_MAILBOX_KHR;
-						break;
-					}
-					if (present_modes[i] == VK_PRESENT_MODE_IMMEDIATE_KHR)
-					{
-						present_mode = VK_PRESENT_MODE_IMMEDIATE_KHR;
-					}
-				}
-			}
-
-			// create swapchain
-			uint32_t desiredSwapChainImageCount = caps.minImageCount + 1;
-			if ((0 < caps.maxImageCount) && (caps.maxImageCount < desiredSwapChainImageCount))
-			{
-				desiredSwapChainImageCount = caps.maxImageCount;
-			}
-
-			{
-				VkSwapchainCreateInfoKHR create_info;
-				create_info.sType					= VK_STRUCTURE_TYPE_SWAPCHAIN_CREATE_INFO_KHR;
-				create_info.pNext					= null;
-				create_info.flags					= 0;
-				create_info.surface					= mSurface;
-				create_info.minImageCount			= desiredSwapChainImageCount;
-				create_info.imageFormat				= fmt;
-				create_info.imageColorSpace			= cl_space;
-				create_info.imageExtent				= VkExtent2D(width, height);
-				create_info.imageArrayLayers		= 1;
-				create_info.imageUsage				= VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT;
-				create_info.imageSharingMode		= VK_SHARING_MODE_EXCLUSIVE;
-				create_info.queueFamilyIndexCount	= 0;
-				create_info.pQueueFamilyIndices		= null;
-				create_info.preTransform			= preTransform;
-				create_info.compositeAlpha			= VK_COMPOSITE_ALPHA_OPAQUE_BIT_KHR;
-				create_info.presentMode				= present_mode;
-				create_info.clipped					= VK_TRUE;
-				create_info.oldSwapchain			= getHandleNull();
-
-				result = vkCreateSwapchainKHR(device, &create_info, null, &mSwapchain);
-				if (result != VkResult.VK_SUCCESS)
-				{
-					writeln( "Error : vkCreateSwapChainKHR() Failed." );
-					return false;
-				}
-				// remember host device
-				mHostDevice = device;
-			}
-
-			uint32_t swap_chain_count = 0;
-
-			// get swap chain count
-			result = vkGetSwapchainImagesKHR(device, mSwapchain, &swap_chain_count, null);
-			if (result != VK_SUCCESS)
-			{
-				writeln("Error : vkGetSwapchainImagesKHR() failed.");
-				return false;
-			}
+			uint swap_chain_count = ret.swapchain_count;
 			mBackBuffers.length = swap_chain_count;
+
+			// remember host device
+			mHostDevice = device;
 
 			// create command buffer per swap chain
 			gpu.mCommandBuffer = new CommandBuffer();
@@ -246,7 +109,7 @@ class SwapChain
 			VkImage[]	images;
 			images.length = swap_chain_count;
 
-			result = vkGetSwapchainImagesKHR(device, mSwapchain, &swap_chain_count, images.ptr);
+			auto result = vkGetSwapchainImagesKHR(device, mSwapchain, &swap_chain_count, images.ptr);
 			if (result != VK_SUCCESS)
 			{
 				writeln("Error : vkGetSwapChainImagesKHR() Failed.");
@@ -259,7 +122,7 @@ class SwapChain
 			{
 				version(Vulkan)
 				{
-					builder.setSwapchain(images[i], cast(ImgFmt)fmt);
+					builder.setSwapchain(images[i], cast(ImgFmt)ret.fmt);
 				}
 				else
 				{
