@@ -17,7 +17,13 @@ version(VulkanErupted)
 
 version(Vulkan)
 {
+	alias	Instance = VkInstance;
 	public import vlad.gpu.vulkan.device;
+	public import vlad.gpu.vulkan.image;
+	version(UseVulkanValidation)
+	{
+		public import vlad.gpu.vulkan.validation;
+	}
 
 	enum VK_API_VERSION = VK_MAKE_VERSION(1, 0, 3);
 
@@ -61,11 +67,28 @@ version(Vulkan)
 			apiVersion = VK_API_VERSION;
 		}
 
-		const(char)*[2] extensions;
 		version(Windows)
 		{
-			extensions[0] = VK_KHR_SURFACE_EXTENSION_NAME.ptr;
-			extensions[1] = VK_KHR_WIN32_SURFACE_EXTENSION_NAME.ptr;
+			version(UseVulkanValidation)
+			{
+				const(char)*[] extensions =
+				[
+					  VK_KHR_SURFACE_EXTENSION_NAME.ptr
+					, VK_KHR_WIN32_SURFACE_EXTENSION_NAME.ptr
+					, VK_EXT_DEBUG_REPORT_EXTENSION_NAME.ptr
+				];
+			}
+			else
+			{
+				const(char)*[] extensions =
+				[
+					  VK_KHR_SURFACE_EXTENSION_NAME.ptr
+					, VK_KHR_WIN32_SURFACE_EXTENSION_NAME.ptr
+				];
+			}
+		}
+		else
+		{
 		}
 
 		VkInstanceCreateInfo instance_info;

@@ -9,8 +9,8 @@ targetPath "bin"
 targetType "library"
 
 configuration "use-vulkan" {
-	dependency "erupted" version="~>1.3.6"
+	dependency "erupted" version="==1.3.9"
 	subConfiguration "erupted" "with-derelict-loader"
-	versions "Vulkan" "VK_USE_PLATFORM_WIN32_KHR"
+	versions "Vulkan" "VK_USE_PLATFORM_WIN32_KHR" "UseVulkanValidation"
 }
 

@@ -123,13 +123,21 @@ class Texture
 		}
 		auto aspect_flag = VK_IMAGE_ASPECT_COLOR_BIT;
 		// set image layout
-		setImageLayout(mImage, gpu.mCommandBuffer.getCurBuffer(), VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_GENERAL);
+		setImageLayout(mImage
+					   , gpu.mCommandBuffer.getCurBuffer()
+					   , VK_IMAGE_ASPECT_COLOR_BIT
+					   , VK_IMAGE_LAYOUT_UNDEFINED
+					   , VK_IMAGE_LAYOUT_GENERAL);
 
 		// clear color buffer
 		clearColorImage(mImage, gpu.mCommandBuffer.getCurBuffer(), C4f.Red);
 
 		// set image layout
-		setImageLayout(mImage, gpu.mCommandBuffer.getCurBuffer(), VK_IMAGE_LAYOUT_GENERAL, builder.ImageLayout);
+		setImageLayout(mImage
+					   , gpu.mCommandBuffer.getCurBuffer()
+					   , VK_IMAGE_ASPECT_COLOR_BIT
+					   , VK_IMAGE_LAYOUT_GENERAL
+					   , builder.ImageLayout);
 		mHost = &gpu;
 		return true;
 	} } } // with, Vulkan
@@ -141,7 +149,7 @@ private:
 	GpuDevice*	mHost;
 	version(Vulkan)
 	{
-		VkImage		mImage;
-		VkImageView	mView;
+		VkImage			mImage;
+		VkImageView		mView;
 	}
 }

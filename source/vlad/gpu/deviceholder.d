@@ -7,6 +7,7 @@ import vlad.basis;
 import vlad.gpu.device;
 import vlad.gpu.commandbuffer;
 import vlad.gpu.swapchain;
+import vlad.gpu.validation;
 import std.stdio;
 
 version(Vulkan)
@@ -43,6 +44,8 @@ public:
 		mIsEnable = createInstance(mInstance, "vlad_app\0", 0, 1, 0);
 		if (!mIsEnable)
 			return;
+
+		mGpuValidation = new GpuValidation(mInstance);
 
 		mIsEnable = enumerateDevices(mInstance, mGpuDevices);
 		if (!mIsEnable)
@@ -93,6 +96,8 @@ public:
 	{
 		if (mSwapChain !is null)
 			mSwapChain.finalize();
+		if (mGpuValidation !is null)
+			mGpuValidation.finalize();
 
 		foreach (int i, ref dev; mGpuDevices)
 		{
@@ -144,4 +149,5 @@ private:
 	Instance			mInstance;
 	GpuDevice[]			mGpuDevices;
 	SwapChain			mSwapChain;
+	GpuValidation		mGpuValidation;
 }

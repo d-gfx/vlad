@@ -10,7 +10,6 @@ import vlad.gpu.commandbuffer;
 version(Vulkan)
 {
 	import vlad.gpu.vulkan;
-	alias	Instance = VkInstance;
 }
 
 

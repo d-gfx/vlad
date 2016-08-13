@@ -5,6 +5,11 @@
  */
 module vlad.gpu.vulkan.image;
 
+private
+{
+	import std.conv;
+}
+
 version(Vulkan) {
 	import vlad.basis;
 	import vlad.gpu.vulkan;
@@ -34,8 +39,10 @@ version(Vulkan) {
 
 	void setImageLayout(VkImage image
 						, VkCommandBuffer cmd
+						, VkImageAspectFlags aspect_flag
 						, VkImageLayout old_layout
-						, VkImageLayout new_layout)
+						, VkImageLayout new_layout
+						)
 	{
 		VkImageMemoryBarrier barrier;
 		barrier.sType = VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER;
@@ -69,8 +76,11 @@ version(Vulkan) {
 		case VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL:
 			barrier.srcAccessMask = VK_ACCESS_SHADER_READ_BIT;
 			break;
+		default:
+//			writeln("old_layout = " ~ to!string(old_layout));
+			break;
 		}
-		switch (newLayout)
+		switch (new_layout)
 		{
 		case VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL:
 			barrier.dstAccessMask = VK_ACCESS_TRANSFER_WRITE_BIT;
@@ -92,6 +102,9 @@ version(Vulkan) {
 				barrier.srcAccessMask = VK_ACCESS_HOST_WRITE_BIT | VK_ACCESS_TRANSFER_WRITE_BIT;
 			}
 			barrier.dstAccessMask = VK_ACCESS_SHADER_READ_BIT;
+			break;
+		default:
+//			writeln("new_layout = " ~ to!string(new_layout));
 			break;
 		}
 
