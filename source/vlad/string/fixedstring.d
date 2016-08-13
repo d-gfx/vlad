@@ -28,10 +28,10 @@ struct IString(A : T[], T)
 	alias Self = IString!(A);
 	alias CHAR = Unqual!T;
 public:
-	A dstr() @property const { return mSliceString; }
+	A dstr() @property @nogc const { return mSliceString; }
 	alias dstr this; // implicit cast
 
-	const(CHAR)* cstr() const pure
+	const(CHAR)* cstr() const pure @nogc
 	{
 		version(NeedException){}else{
 			if (mBufStringz is null)
@@ -39,13 +39,13 @@ public:
 		}
 		return cast(ReturnType!(Self.cstr))&mBufStringz[0];
 	}
-	CHAR* cstr() { return &mBufStringz[0]; }
+	CHAR* cstr() @nogc { return &mBufStringz[0]; }
 
-	size_t maxSize()	const pure { return max(0, mBufStringz.length - 1); } // exclude null-terminated
-	size_t maxSizez()	const pure { return mBufStringz.length;	 } // include null-terminated
-	size_t length()		const pure { return (mSliceString is null) ? 0 : mSliceString.length; }
-	size_t lengthz()	const pure { return (mSliceString is null) ? 0 : mSliceString.length + 1; } // include null-terminated
-	bool	isReady()	const pure { return (mBufStringz !is null); }
+	size_t maxSize()	const pure @nogc { return max(0, mBufStringz.length - 1); } // exclude null-terminated
+	size_t maxSizez()	const pure @nogc { return mBufStringz.length;	 } // include null-terminated
+	size_t length()		const pure @nogc { return (mSliceString is null) ? 0 : mSliceString.length; }
+	size_t lengthz()	const pure @nogc { return (mSliceString is null) ? 0 : mSliceString.length + 1; } // include null-terminated
+	bool	isReady()	const pure @nogc { return (mBufStringz !is null); }
 
 	/**
 	 *	store
@@ -66,10 +66,10 @@ public:
 	 */
 	struct InputRange
 	{
-		this (in Self host) { mHost = host; }
-		CHAR front() const @property { return mHost.mBufStringz[mInputIndex]; }
-		CHAR popFront() @property { return mHost.mBufStringz[mInputIndex++]; }
-		bool empty() const @property { return mInputIndex == mHost.mBufStringz.length; }
+		this (in Self host) @nogc { mHost = host; }
+		CHAR front() const @property @nogc { return mHost.mBufStringz[mInputIndex]; }
+		CHAR popFront() @property @nogc { return mHost.mBufStringz[mInputIndex++]; }
+		bool empty() const @property @nogc { return mInputIndex == mHost.mBufStringz.length; }
 		size_t	mInputIndex = 0;
 		const(Self) mHost;
 	}
@@ -80,8 +80,8 @@ public:
 	struct OutputRange
 	{
 		Self* mHost;
-		this (ref Self host) { mHost = &host; }
-		void put(U)(U item)
+		this (ref Self host) @nogc { mHost = &host; }
+		void put(U)(U item) @nogc
 		{
 			auto len = mHost.length();
 			if (len < mHost.maxSize())
@@ -92,27 +92,27 @@ public:
 //				if (!__ctfe) vlPrintlnInfo("len = %s, item = %s, mSliceString.length = %s", len, item, mHost.mSliceString.length);
 			}
 		}
-		void put(const(char)[] s)
+		void put(const(char)[] s) @nogc
 		{
 //			std.format.sformat(mHost.mBufStringz[0..mHost.mBufStringz.length], "%s", s);
 			foreach (e; s) { put(e); }
 		}
 	}
 
-	void clear()
+	void clear() @nogc
 	{
 		mSliceString = null;
 		if (mBufStringz !is null)	mBufStringz[0] = '\0';
 	}
 
-	bool isEmpty() const { return mSliceString is null; }
-	bool isEqualString(A str) const pure { return 0 == cmp(dstr, str); }
+	bool isEmpty() const @nogc { return mSliceString is null; }
+	bool isEqualString(A str) const pure @nogc { return 0 == cmp(dstr, str); }
 
 	/**
 	 *	find null-terminate and make apropriate slice
 	 *	when using C-like function ex. win32 api
 	 */
-	void ajustSlicez()
+	void ajustSlicez() @nogc
 	{
 		foreach (int i, ch; mBufStringz)
 		{
@@ -137,13 +137,13 @@ struct FixedString(int N, A : T[], T)
 {
 	alias CHAR = Unqual!T;
 public:
-	const(IString!A) getString() @property const { return mString; }
+	const(IString!A) getString() @property const @nogc { return mString; }
 	alias getString this; // for interface
-	CHAR* cstr() { trySetupBuffer(); return mString.cstr; }	// non-const version
-	void ajustSlicez() { return mString.ajustSlicez(); }
-	void clear() { return mString.clear(); }
+	CHAR* cstr() @nogc { trySetupBuffer(); return mString.cstr; }	// non-const version
+	void ajustSlicez() @nogc { return mString.ajustSlicez(); }
+	void clear() @nogc { return mString.clear(); }
 
-	private void trySetupBuffer()
+	private void trySetupBuffer() @nogc
 	{
 		if (mString.mBufStringz is null)
 		{
