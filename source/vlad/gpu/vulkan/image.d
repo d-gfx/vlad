@@ -18,6 +18,7 @@ private
 version(Vulkan) {
 	import vlad.basis;
 	import vlad.gpu.vulkan;
+	alias VkImageUtil = vlad.gpu.vulkan.image;
 
 	VkImageViewType getVkImageViewType(in TexType type) @nogc nothrow pure
 	{
@@ -191,7 +192,7 @@ version(Vulkan) {
 			usage_bit = VK_IMAGE_USAGE_DEPTH_STENCIL_ATTACHMENT_BIT;
 		}
 
-		VkImageTiling		img_tiling;
+		VkImageTiling	img_tiling;
 		if (fmt_props.linearTilingFeatures & flag_bit)
 		{
 			img_tiling = VK_IMAGE_TILING_LINEAR;
@@ -202,17 +203,17 @@ version(Vulkan) {
 		}
 		else
 		{
-			writeln("Error : createImage failed. : VkImageTiling not supported Format[%s]", builder.ImageFormat.stringof);
+			writeln("Error : createImage failed. : VkImageTiling not supported Format[%s]", vk_fmt.stringof);
 			return typeof(return)(false, VK_NULL_ND_HANDLE, VK_NULL_ND_HANDLE);
 		}
-		writeln("VkImageTiling = %s", img_tiling.stringof);
+		writefln("VkImageTiling = %s", to!string(img_tiling));
 
 		VkImageCreateInfo create_info;
 		with (create_info)
 		{
 			pNext					= null;
 			flags					= 0;
-			imageType				= getVkImageType(builder.TextureType);
+			imageType				= VkImageUtil.getVkImageType(builder.TextureType);
 			format					= vk_fmt;
 			extent.width			= builder.Width;
 			extent.height			= builder.Height;
@@ -281,5 +282,51 @@ version(Vulkan) {
 
 
 		return typeof(return)(true, image, memory);
+	}
+	Tuple!(bool, "is_success", VkImageView, "image_view")
+		createImageView(ref GpuDevice gpu, in VkImage image, VkImageAspectFlags aspect_flag, in TexBuilder builder)
+	{
+		auto device = gpu.mDevice.device;
+
+		VkImageViewCreateInfo view_info;
+		view_info.pNext = null;
+		view_info.flags = 0;
+		view_info.image = image;
+		view_info.viewType = VkImageUtil.getVkImageViewType(builder.TextureType);
+		view_info.format = cast(VkFormat)builder.ImageFormat;
+		view_info.components.r	= VK_COMPONENT_SWIZZLE_R;
+		view_info.components.g	= VK_COMPONENT_SWIZZLE_G;
+		view_info.components.b	= VK_COMPONENT_SWIZZLE_B;
+		view_info.components.a	= VK_COMPONENT_SWIZZLE_A;
+		view_info.subresourceRange = VkImageSubresourceRange(
+										aspect_flag
+										, builder.BaseMipLevel
+										, builder.CountMipLevel
+										, builder.BaseArrayLayer
+										, builder.CountArrayLayer);
+
+		VkImageView view;
+		auto result = vkCreateImageView(device, &view_info, null, &view);
+		if (result != VK_SUCCESS)
+		{
+			import std.stdio;
+			writeln("Error : vkCreateImageView() failed.");
+			return typeof(return)(false, VK_NULL_ND_HANDLE);
+		}
+		return typeof(return)(true, view);
+	}
+
+	VkImageAspectFlags decideAspectFlag(ImgFmt img_fmt)
+	{
+		// decide aspect flag
+		VkImageAspectFlags aspect_flag = VK_IMAGE_ASPECT_COLOR_BIT;
+		if (img_fmt.isDepthStencil())
+		{
+			aspect_flag = 0;
+			if (img_fmt.isDepth())	aspect_flag |= VK_IMAGE_ASPECT_DEPTH_BIT;
+			if (img_fmt.isStencil()) aspect_flag |= VK_IMAGE_ASPECT_STENCIL_BIT;
+		}
+
+		return aspect_flag;
 	}
 }

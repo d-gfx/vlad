@@ -88,7 +88,7 @@ class Texture
 		else
 		{
 			// create image
-			auto ret = createImage(gpu, builder);
+			auto ret = VkImageUtil.createImage(gpu, builder);
 			if (!ret.is_success)
 			{
 				return false;
@@ -97,61 +97,40 @@ class Texture
 			mMemory = ret.memory;
 			mIsImageOwner = true;
 		}
-		// create image view
-		VkImageViewCreateInfo view_info;
-		view_info.sType = VK_STRUCTURE_TYPE_IMAGE_VIEW_CREATE_INFO;
-		view_info.pNext = null;
-		view_info.flags = 0;
-		view_info.image = mImage;
-		view_info.viewType = getVkImageViewType(builder.TextureType);
-		view_info.format = cast(VkFormat)builder.ImageFormat;
-		view_info.components.r	= VK_COMPONENT_SWIZZLE_R;
-		view_info.components.g	= VK_COMPONENT_SWIZZLE_G;
-		view_info.components.b	= VK_COMPONENT_SWIZZLE_B;
-		view_info.components.a	= VK_COMPONENT_SWIZZLE_A;
-		view_info.subresourceRange = VkImageSubresourceRange(
-										VK_IMAGE_ASPECT_COLOR_BIT
-										, builder.BaseMipLevel
-										, builder.CountMipLevel
-										, builder.BaseArrayLayer
-										, builder.CountArrayLayer);
 
-		auto result = vkCreateImageView(device, &view_info, null, &mView);
-		if (result != VK_SUCCESS)
+		// aspect flag
+		auto aspect_flag = VkImageUtil.decideAspectFlag(builder.ImageFormat);
+
+		// create image view
+		auto img_view_ret = VkImageUtil.createImageView(gpu, mImage, aspect_flag, builder);
+		if (!img_view_ret.is_success)
 		{
-			import std.stdio;
-			writeln("Error : vkCreateImageView() failed.");
 			return false;
 		}
-
-		VkImageAspectFlags aspect_flag = VK_IMAGE_ASPECT_COLOR_BIT;
-		if (builder.ImageFormat.isDepthStencil())
-		{
-			aspect_flag = 0;
-			if (builder.ImageFormat.isDepth())	 aspect_flag |= VK_IMAGE_ASPECT_DEPTH_BIT;
-			if (builder.ImageFormat.isStencil()) aspect_flag |= VK_IMAGE_ASPECT_STENCIL_BIT;
-		}
+		mView = img_view_ret.image_view;
 
 		mLayout = VK_IMAGE_LAYOUT_UNDEFINED;
+
 		// set image layout
-		setImageLayout(mImage
+		VkImageUtil.setImageLayout(mImage
 					   , gpu.mCommandBuffer.getCurBuffer()
 					   , aspect_flag
 					   , &mLayout
 					   , VK_IMAGE_LAYOUT_GENERAL);
 
+		// clear texture
 		if (builder.ImageFormat.isDepthStencil())
 		{
-			clearDepthStencilImage(mImage, gpu.mCommandBuffer.getCurBuffer(), 1.0f);
+			VkImageUtil.clearDepthStencilImage(mImage, gpu.mCommandBuffer.getCurBuffer(), 1.0f);
 		}
 		else
 		{
 			// clear color buffer
-			clearColorImage(mImage, gpu.mCommandBuffer.getCurBuffer(), C4f.Red);
+			VkImageUtil.clearColorImage(mImage, gpu.mCommandBuffer.getCurBuffer(), C4f.Red);
 		}
 
 		// set image layout
-		setImageLayout(mImage
+		VkImageUtil.setImageLayout(mImage
 					   , gpu.mCommandBuffer.getCurBuffer()
 					   , aspect_flag
 					   , &mLayout
@@ -180,7 +159,6 @@ class Texture
 			vkDestroyImage(device, mImage, null);
 			mImage = VK_NULL_ND_HANDLE;
 		}
-		vlPrintlnInfo("");
 	}
 
 private:
