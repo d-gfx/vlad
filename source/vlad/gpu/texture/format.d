@@ -138,5 +138,39 @@ enum ImgFmt
 	B10_G11_R11_Pack32_Ufloat =			mixin(DefineFormatEnum!("VK_FORMAT_B10G11R11_UFLOAT_PACK32")),
 	E5_B9_G9_R9_Pack32_Ufloat =			mixin(DefineFormatEnum!("VK_FORMAT_E5B9G9R9_UFLOAT_PACK32")),
 
+	// Depth & Stencil
+	D16_Unorm =							mixin(DefineFormatEnum!("VK_FORMAT_D16_UNORM")),
+	X8_D24_Unorm_Pack32 =				mixin(DefineFormatEnum!("VK_FORMAT_X8_D24_UNORM_PACK32")),
+	D32_Sfloat =						mixin(DefineFormatEnum!("VK_FORMAT_D32_SFLOAT")),
+	S8_Uint =							mixin(DefineFormatEnum!("VK_FORMAT_S8_UINT")),
+	D16_Unorm_S8_Uint =					mixin(DefineFormatEnum!("VK_FORMAT_D16_UNORM_S8_UINT")),
+	D24_Unorm_S8_Uint =					mixin(DefineFormatEnum!("VK_FORMAT_D24_UNORM_S8_UINT")),
+	D32_Sfloat_S8_Uint =				mixin(DefineFormatEnum!("VK_FORMAT_D32_SFLOAT_S8_UINT")),
 // ...
+}
+
+bool isDepthStencil(in ImgFmt img_fmt) pure nothrow @nogc
+{
+	return img_fmt.isDepth() || img_fmt.isStencil();
+}
+
+bool isDepth(in ImgFmt img_fmt) pure nothrow @nogc
+{
+	return img_fmt == ImgFmt.D16_Unorm
+		|| img_fmt == ImgFmt.X8_D24_Unorm_Pack32
+		|| img_fmt == ImgFmt.D32_Sfloat
+		|| img_fmt == ImgFmt.D16_Unorm_S8_Uint
+		|| img_fmt == ImgFmt.D24_Unorm_S8_Uint
+		|| img_fmt == ImgFmt.D32_Sfloat_S8_Uint
+		;
+}
+
+bool isStencil(in ImgFmt img_fmt) pure nothrow @nogc
+{
+	return img_fmt == ImgFmt.X8_D24_Unorm_Pack32
+		|| img_fmt == ImgFmt.S8_Uint
+		|| img_fmt == ImgFmt.D16_Unorm_S8_Uint
+		|| img_fmt == ImgFmt.D24_Unorm_S8_Uint
+		|| img_fmt == ImgFmt.D32_Sfloat_S8_Uint
+		;
 }

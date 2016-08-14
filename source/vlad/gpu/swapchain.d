@@ -105,7 +105,7 @@ class SwapChain
 			gpu.mCommandBuffer = new CommandBuffer();
 			gpu.mCommandBuffer.create(gpu, swap_chain_count);
 
-			// create back buffer
+			// get swapchain images
 			VkImage[]	images;
 			images.length = swap_chain_count;
 
@@ -116,7 +116,8 @@ class SwapChain
 				return false;
 			}
 
-			Texture.Builder builder;
+			// create back buffer
+			TexBuilder builder;
 			builder.setWidth(width).setHeight(height);
 			foreach (i; 0..swap_chain_count)
 			{
@@ -133,13 +134,32 @@ class SwapChain
 			}
 
 			images.length = 0;
+
+			// create depth stencil buffer
+			TexBuilder depth_builder;
+			depth_builder.setWidth(width)
+						 .setHeight(height)
+						 .setImageFormat(ImgFmt.D32_Sfloat)
+						 .setImageLayout(VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL)
+						 .setTextureType(TexType.Tex2D)
+				;
+			mDepthStencilBuffer = new Texture();
+			mDepthStencilBuffer.create(gpu, depth_builder);
 		} } // with, Vulkan
 
 		return true;
 	}
 
+	/**
+	 *	Destory created object
+	 */
 	void finalize()
 	{
+		foreach (ref tex; mBackBuffers)
+		{
+			tex.finalize();
+		}
+		mDepthStencilBuffer.finalize();
 		version(Vulkan)
 		{
 			vkDestroySwapchainKHR(mHostDevice, mSwapchain, null);
@@ -154,4 +174,5 @@ private:
 		VkSwapchainKHR	mSwapchain;
 	}
 	Texture[]	mBackBuffers;
+	Texture		mDepthStencilBuffer;
 }

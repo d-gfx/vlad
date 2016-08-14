@@ -104,7 +104,7 @@ public:
 			dev.finalize();
 		}
 		vkDestroyInstance(mInstance, null);
-		writeln("GpuDevice::finalize.");
+		vlPrintlnInfo("GpuDevice::finalize.");
 	}
 
 	nothrow bool isEnable() const { return mIsEnable; }

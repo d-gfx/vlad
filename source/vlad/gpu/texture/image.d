@@ -33,45 +33,48 @@ version(Vulkan)
 	import vlad.gpu.vulkan;
 }
 
+enum TexType
+{
+	Tex1D, Tex1DArray, Tex2D, Tex2DArray, Tex3D, TexCubeMap, TexCubeMapArray
+}
+
+struct TexBuilder
+{
+	alias Self = TexBuilder;
+	mixin(DefineBuilderMember!("int", "Width",	"-1"));
+	mixin(DefineBuilderMember!("int", "Height",	"-1"));
+	mixin(DefineBuilderMember!("int", "Depth",	"-1"));
+	mixin(DefineBuilderMember!("int", "Layer",	"-1"));
+	mixin(DefineBuilderMember!("int", "BaseMipLevel", "0"));
+	mixin(DefineBuilderMember!("int", "CountMipLevel", "1"));
+	mixin(DefineBuilderMember!("int", "BaseArrayLayer", "0"));
+	mixin(DefineBuilderMember!("int", "CountArrayLayer", "1"));
+	mixin(DefineBuilderMember!("TexType", "TextureType", "TexType.Tex2D"));
+	mixin(DefineBuilderMember!("ImgFmt", "ImageFormat", "ImgFmt.R8_G8_B8_A8_Unorm"));
+	version(Vulkan)
+	{
+		mixin(DefineBuilderMember!("VkImage", "Image",	"VK_NULL_ND_HANDLE")); // if already created
+		mixin(DefineBuilderMember!("VkImageLayout", "ImageLayout", "VK_IMAGE_LAYOUT_UNDEFINED"));
+		void setSwapchain(VkImage img, ImgFmt fmt)
+		{
+			setImage(img);
+			setImageLayout(VK_IMAGE_LAYOUT_PRESENT_SRC_KHR);
+			setTextureType(TexType.Tex2D);
+		}
+	}
+}
+
 class Texture
 {
-	enum TexType
-	{
-		Tex1D, Tex1DArray, Tex2D, Tex2DArray, Tex3D, TexCubeMap, TexCubeMapArray
-	}
-
-	struct Builder
-	{
-		alias Self = Builder;
-		mixin(DefineBuilderMember!("int", "Width",	"-1"));
-		mixin(DefineBuilderMember!("int", "Height",	"-1"));
-		mixin(DefineBuilderMember!("int", "Depth",	"-1"));
-		mixin(DefineBuilderMember!("int", "Layer",	"-1"));
-		mixin(DefineBuilderMember!("int", "BaseMipLevel", "0"));
-		mixin(DefineBuilderMember!("int", "CountMipLevel", "1"));
-		mixin(DefineBuilderMember!("int", "BaseArrayLayer", "0"));
-		mixin(DefineBuilderMember!("int", "CountArrayLayer", "1"));
-		mixin(DefineBuilderMember!("TexType", "TextureType", "TexType.Tex2D"));
-		mixin(DefineBuilderMember!("ImgFmt", "ImageFormat", "ImgFmt.R8_G8_B8_A8_Unorm"));
-		version(Vulkan)
-		{
-			mixin(DefineBuilderMember!("VkImage", "Image",	"VK_NULL_ND_HANDLE")); // if already created
-			mixin(DefineBuilderMember!("VkImageLayout", "ImageLayout", "VK_IMAGE_LAYOUT_UNDEFINED"));
-			void setSwapchain(VkImage img, ImgFmt fmt)
-			{
-				setImage(img);
-				setImageLayout(VK_IMAGE_LAYOUT_PRESENT_SRC_KHR);
-				setTextureType(TexType.Tex2D);
-			}
-		}
-
-	}
-
 	/**
 	 *	create texture by builder
 	 */
-	bool create(ref GpuDevice gpu, ref Builder builder) {version(Vulkan){with(gpu.mDevice)
+	bool create(ref GpuDevice gpu, ref TexBuilder builder) {version(Vulkan){with(gpu.mDevice)
 	{
+		mHostDevice = gpu.mDevice.device;
+		assert(mImage  is VK_NULL_ND_HANDLE);
+		assert(mView   is VK_NULL_ND_HANDLE);
+		assert(mMemory is VK_NULL_ND_HANDLE);
 		if (builder.ImageLayout == VK_IMAGE_LAYOUT_UNDEFINED)
 		{
 			vlAssert(0, "builder.ImageLayout = %s", builder.ImageLayout);
@@ -79,11 +82,20 @@ class Texture
 		}
 		if (builder.Image !is VK_NULL_ND_HANDLE)
 		{
-			mImage = builder.Image;
+			mImage = builder.Image; // ex. Swapchain image
+			mIsImageOwner = false;
 		}
 		else
 		{
 			// create image
+			auto ret = createImage(gpu, builder);
+			if (!ret.is_success)
+			{
+				return false;
+			}
+			mImage = ret.image;
+			mMemory = ret.memory;
+			mIsImageOwner = true;
 		}
 		// create image view
 		VkImageViewCreateInfo view_info;
@@ -91,18 +103,8 @@ class Texture
 		view_info.pNext = null;
 		view_info.flags = 0;
 		view_info.image = mImage;
-		switch (builder.TextureType)
-		{
-		case TexType.Tex1D:				view_info.viewType = VK_IMAGE_VIEW_TYPE_1D;			break;
-		case TexType.Tex1DArray:		view_info.viewType = VK_IMAGE_VIEW_TYPE_1D_ARRAY;	break;
-		case TexType.Tex2D:				view_info.viewType = VK_IMAGE_VIEW_TYPE_2D;			break;
-		case TexType.Tex2DArray:		view_info.viewType = VK_IMAGE_VIEW_TYPE_2D_ARRAY;	break;
-		case TexType.Tex3D:				view_info.viewType = VK_IMAGE_VIEW_TYPE_3D;			break;
-		case TexType.TexCubeMap:		view_info.viewType = VK_IMAGE_VIEW_TYPE_CUBE;		break;
-		case TexType.TexCubeMapArray:	view_info.viewType = VK_IMAGE_VIEW_TYPE_CUBE_ARRAY;	break;
-		default:	assert(0);
-		}
-		view_info.format = builder.ImageFormat;
+		view_info.viewType = getVkImageViewType(builder.TextureType);
+		view_info.format = cast(VkFormat)builder.ImageFormat;
 		view_info.components.r	= VK_COMPONENT_SWIZZLE_R;
 		view_info.components.g	= VK_COMPONENT_SWIZZLE_G;
 		view_info.components.b	= VK_COMPONENT_SWIZZLE_B;
@@ -121,35 +123,74 @@ class Texture
 			writeln("Error : vkCreateImageView() failed.");
 			return false;
 		}
-		auto aspect_flag = VK_IMAGE_ASPECT_COLOR_BIT;
+
+		VkImageAspectFlags aspect_flag = VK_IMAGE_ASPECT_COLOR_BIT;
+		if (builder.ImageFormat.isDepthStencil())
+		{
+			aspect_flag = 0;
+			if (builder.ImageFormat.isDepth())	 aspect_flag |= VK_IMAGE_ASPECT_DEPTH_BIT;
+			if (builder.ImageFormat.isStencil()) aspect_flag |= VK_IMAGE_ASPECT_STENCIL_BIT;
+		}
+
+		mLayout = VK_IMAGE_LAYOUT_UNDEFINED;
 		// set image layout
 		setImageLayout(mImage
 					   , gpu.mCommandBuffer.getCurBuffer()
-					   , VK_IMAGE_ASPECT_COLOR_BIT
-					   , VK_IMAGE_LAYOUT_UNDEFINED
+					   , aspect_flag
+					   , &mLayout
 					   , VK_IMAGE_LAYOUT_GENERAL);
 
-		// clear color buffer
-		clearColorImage(mImage, gpu.mCommandBuffer.getCurBuffer(), C4f.Red);
+		if (builder.ImageFormat.isDepthStencil())
+		{
+			clearDepthStencilImage(mImage, gpu.mCommandBuffer.getCurBuffer(), 1.0f);
+		}
+		else
+		{
+			// clear color buffer
+			clearColorImage(mImage, gpu.mCommandBuffer.getCurBuffer(), C4f.Red);
+		}
 
 		// set image layout
 		setImageLayout(mImage
 					   , gpu.mCommandBuffer.getCurBuffer()
-					   , VK_IMAGE_ASPECT_COLOR_BIT
-					   , VK_IMAGE_LAYOUT_GENERAL
+					   , aspect_flag
+					   , &mLayout
 					   , builder.ImageLayout);
-		mHost = &gpu;
 		return true;
 	} } } // with, Vulkan
 
+	/**
+	 *	Destroy created object
+	 */
 	void finalize()
 	{
+		VkDevice device = mHostDevice;
+		if (mView !is VK_NULL_ND_HANDLE)
+		{
+			vkDestroyImageView(device, mView, null);
+			mView = VK_NULL_ND_HANDLE;
+		}
+		if (mMemory !is VK_NULL_ND_HANDLE)
+		{
+			vkFreeMemory(device, mMemory, null);
+			mMemory = VK_NULL_ND_HANDLE;
+		}
+		if (mImage !is VK_NULL_ND_HANDLE && mIsImageOwner)
+		{
+			vkDestroyImage(device, mImage, null);
+			mImage = VK_NULL_ND_HANDLE;
+		}
+		vlPrintlnInfo("");
 	}
+
 private:
-	GpuDevice*	mHost;
 	version(Vulkan)
 	{
+		VkDevice		mHostDevice;
 		VkImage			mImage;
 		VkImageView		mView;
+		VkImageLayout	mLayout;
+		VkDeviceMemory	mMemory; // if needed
 	}
+	bool	mIsImageOwner = false;
 }
