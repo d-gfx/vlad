@@ -74,7 +74,6 @@ class Texture
 		mHostDevice = gpu.mDevice.device;
 		mFormat = builder.ImageFormat;
 
-		vlPrintlnInfo("mHostGpu.mDevice.device = %s", mHostGpu.mDevice.device);
 		assert(mImage.isNdHandleNull);
 		assert(mView.isNdHandleNull);
 		assert(mMemory.isNdHandleNull);

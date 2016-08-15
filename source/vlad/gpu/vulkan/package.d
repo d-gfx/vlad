@@ -21,6 +21,7 @@ version(Vulkan)
 	alias	vkUtil = vlad.gpu.vulkan;
 	public import vlad.gpu.vulkan.device;
 	public import vlad.gpu.vulkan.image;
+	public import vlad.gpu.vulkan.framebuffer;
 	version(UseVulkanValidation)
 	{
 		public import vlad.gpu.vulkan.validation;
