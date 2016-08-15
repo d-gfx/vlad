@@ -7,6 +7,7 @@ import vlad.gpu.device;
 
 version(Vulkan)
 {
+	alias vkDeviceUtil = vlad.gpu.vulkan.device;
 	import vlad.gpu.vulkan;
 	import vlad.basis;
 	import std.stdio;
@@ -25,11 +26,14 @@ version(Vulkan)
 		void finalize()
 		{
 			if (device is null) return;
-			if (!isHandleNull(command_pool))
+			if (!command_pool.isNdHandleNull)
 			{
 				vkDestroyCommandPool(device, command_pool, null);
+				command_pool = vkUtil.getNdHandleNull();
 			}
 			vkDestroyDevice(device, null);
+			device = VK_NULL_HANDLE;
+			vlPrintlnInfo("");
 		}
 	}
 
@@ -46,6 +50,10 @@ version(Vulkan)
 		}
 
 		devices.length = count;
+		foreach (ref dev; devices)
+		{
+			dev = new GpuDevice();
+		}
 
 		VkPhysicalDevice[] tmp_devs;
 		tmp_devs.length = count;

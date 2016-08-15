@@ -143,7 +143,7 @@ version(Vulkan) {
 				create_info.compositeAlpha			= VK_COMPOSITE_ALPHA_OPAQUE_BIT_KHR;
 				create_info.presentMode				= present_mode;
 				create_info.clipped					= VK_TRUE;
-				create_info.oldSwapchain			= getHandleNull();
+				create_info.oldSwapchain			= getNdHandleNull();
 
 				result = vkCreateSwapchainKHR(device, &create_info, null, swap_chain);
 				if (result != VkResult.VK_SUCCESS)

@@ -12,8 +12,10 @@ version(Vulkan)
 	import vlad.gpu.vulkan;
 }
 
-
-struct GpuDevice
+/**
+ *	gpu device class
+ */
+class GpuDevice
 {
 	version(Vulkan)
 	{
@@ -40,7 +42,7 @@ bool setupApi()
 {
 	version(Vulkan)
 	{
-		return setupVulkanApi();
+		return vkUtil.setupVulkanApi();
 	}
 	else
 	{
@@ -52,7 +54,7 @@ bool createInstance(ref Instance inst, string app_namez, int app_ver_major, int 
 {
 	version(Vulkan)
 	{
-		return createInstanceVulkan(inst, app_namez, app_ver_major, app_ver_minor, app_ver_patch);
+		return vkUtil.createInstanceVulkan(inst, app_namez, app_ver_major, app_ver_minor, app_ver_patch);
 	}
 	else
 	{
@@ -62,13 +64,13 @@ bool createInstance(ref Instance inst, string app_namez, int app_ver_major, int 
 
 bool enumerateDevices(ref Instance inst, ref GpuDevice[] devices)
 {
-	version(Vulkan)	{ return enumerateDevicesVulkan(inst, devices); }
+	version(Vulkan)	{ return vkDeviceUtil.enumerateDevicesVulkan(inst, devices); }
 	else			{ return false; }
 }
 
 bool createDevices(ref GpuDevice[] devices)
 {
-	version(Vulkan)	{ return createDevicesVulkan(devices); }
+	version(Vulkan)	{ return vkDeviceUtil.createDevicesVulkan(devices); }
 	else			{ return true; }
 }
 

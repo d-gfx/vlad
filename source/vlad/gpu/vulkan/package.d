@@ -18,6 +18,7 @@ version(VulkanErupted)
 version(Vulkan)
 {
 	alias	Instance = VkInstance;
+	alias	vkUtil = vlad.gpu.vulkan;
 	public import vlad.gpu.vulkan.device;
 	public import vlad.gpu.vulkan.image;
 	version(UseVulkanValidation)
@@ -27,13 +28,8 @@ version(Vulkan)
 
 	enum VK_API_VERSION = VK_MAKE_VERSION(1, 0, 3);
 
-	version(X86_64) {
-		bool isHandleNull(Handle)(Handle h) { return h is null; }
-		auto getHandleNull() { return null; }
-	} else {
-		bool isHandleNull(Handle)(Handle h) { return h == 0; }
-		auto getHandleNull() { return 0; }
-	}
+	bool isNdHandleNull(Handle)(Handle h) { return h is VK_NULL_ND_HANDLE; }
+	auto getNdHandleNull() { return VK_NULL_ND_HANDLE; }
 
 	bool setupVulkanApi()
 	{

@@ -72,15 +72,18 @@ class Texture
 	bool create(ref GpuDevice gpu, ref TexBuilder builder) {version(Vulkan){with(gpu.mDevice)
 	{
 		mHostDevice = gpu.mDevice.device;
-		assert(mImage  is VK_NULL_ND_HANDLE);
-		assert(mView   is VK_NULL_ND_HANDLE);
-		assert(mMemory is VK_NULL_ND_HANDLE);
+		mFormat = builder.ImageFormat;
+
+		vlPrintlnInfo("mHostGpu.mDevice.device = %s", mHostGpu.mDevice.device);
+		assert(mImage.isNdHandleNull);
+		assert(mView.isNdHandleNull);
+		assert(mMemory.isNdHandleNull);
 		if (builder.ImageLayout == VK_IMAGE_LAYOUT_UNDEFINED)
 		{
 			vlAssert(0, "builder.ImageLayout = %s", builder.ImageLayout);
 			return false;
 		}
-		if (builder.Image !is VK_NULL_ND_HANDLE)
+		if (!builder.Image.isNdHandleNull)
 		{
 			mImage = builder.Image; // ex. Swapchain image
 			mIsImageOwner = false;
@@ -144,20 +147,20 @@ class Texture
 	void finalize()
 	{
 		VkDevice device = mHostDevice;
-		if (mView !is VK_NULL_ND_HANDLE)
+		if (!mView.isNdHandleNull)
 		{
 			vkDestroyImageView(device, mView, null);
-			mView = VK_NULL_ND_HANDLE;
+			mView = vkUtil.getNdHandleNull();
 		}
-		if (mMemory !is VK_NULL_ND_HANDLE)
+		if (!mMemory.isNdHandleNull)
 		{
 			vkFreeMemory(device, mMemory, null);
-			mMemory = VK_NULL_ND_HANDLE;
+			mMemory = vkUtil.getNdHandleNull();
 		}
-		if (mImage !is VK_NULL_ND_HANDLE && mIsImageOwner)
+		if (!mImage.isNdHandleNull && mIsImageOwner)
 		{
 			vkDestroyImage(device, mImage, null);
-			mImage = VK_NULL_ND_HANDLE;
+			mImage = vkUtil.getNdHandleNull();
 		}
 	}
 
@@ -170,5 +173,6 @@ private:
 		VkImageLayout	mLayout;
 		VkDeviceMemory	mMemory; // if needed
 	}
+	ImgFmt	mFormat;
 	bool	mIsImageOwner = false;
 }

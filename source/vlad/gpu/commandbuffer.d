@@ -65,9 +65,9 @@ class CommandBuffer
 			VkCommandBufferInheritanceInfo inheritance_info;
 			inheritance_info.sType					= VkStructureType.VK_STRUCTURE_TYPE_COMMAND_BUFFER_INHERITANCE_INFO;
 			inheritance_info.pNext					= null;
-			inheritance_info.renderPass				= getHandleNull();
+			inheritance_info.renderPass				= getNdHandleNull();
 			inheritance_info.subpass				= 0;
-			inheritance_info.framebuffer			= getHandleNull();
+			inheritance_info.framebuffer			= getNdHandleNull();
 			inheritance_info.occlusionQueryEnable	= VK_FALSE;
 			inheritance_info.queryFlags				= 0;
 			inheritance_info.pipelineStatistics		= 0;
